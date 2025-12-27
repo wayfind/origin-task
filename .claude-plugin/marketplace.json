@@ -1,0 +1,21 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "origin-task",
+  "owner": {
+    "name": "wayfind",
+    "url": "https://github.com/wayfind"
+  },
+  "plugins": [
+    {
+      "name": "intent-engine",
+      "source": "./intent-engine",
+      "description": "AI Long-Term Task Memory - Cross-session task tracking",
+      "version": "0.10.4",
+      "category": "productivity",
+      "keywords": ["task", "memory", "session", "planning"],
+      "author": {
+        "name": "wayfind"
+      }
+    }
+  ]
+}
