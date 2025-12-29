@@ -109,7 +109,7 @@ function installIe() {
   console.log('');
 
   try {
-    const result = spawnSync('npm', ['install', '-g', '@m3task/intent-engine'], {
+    const result = spawnSync('npm', ['install', '-g', '@origintask/intent-engine'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 60000,
@@ -158,7 +158,7 @@ intent-engine (ie) not available.
 Auto-install ${commandExists('npm') ? 'failed' : 'skipped (npm not found)'}.
 
 Please install manually:
-  npm install -g @m3task/intent-engine
+  npm install -g @origintask/intent-engine
   cargo install intent-engine
   brew install wayfind/tap/intent-engine
 </system-reminder>`);

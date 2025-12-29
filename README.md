@@ -36,7 +36,7 @@ After installation, the plugin automatically:
 The plugin will auto-install `ie` CLI via npm if not found. You can also install manually:
 
 ```bash
-npm install -g @m3task/intent-engine
+npm install -g @origintask/intent-engine
 # or
 cargo install intent-engine
 # or
@@ -79,7 +79,7 @@ claude plugin marketplace remove origin-task
 ## Related
 
 - [intent-engine](https://github.com/wayfind/intent-engine) - Core CLI tool
-- [npm package](https://www.npmjs.com/package/@m3task/intent-engine)
+- [npm package](https://www.npmjs.com/package/@origintask/intent-engine)
 
 ## License
 

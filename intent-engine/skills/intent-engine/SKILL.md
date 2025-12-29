@@ -68,7 +68,7 @@ Because the user trusts you will finish.
 ## Prerequisites
 
 ```bash
-npm install -g @m3task/intent-engine
+npm install -g @origintask/intent-engine
 # or: cargo install intent-engine
 # or: brew install wayfind/tap/intent-engine
 ```
