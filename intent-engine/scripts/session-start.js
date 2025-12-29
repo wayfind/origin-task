@@ -170,12 +170,38 @@ if (justInstalled) {
 <system-reminder>
 # intent-engine is now ready to use!
 
-Use \`ie plan\` instead of TodoWrite for cross-session task tracking:
+## What is ie?
+A cross-session task memory that replaces TodoWrite for persistent, hierarchical task tracking.
+Both human and AI can track progress together across multiple sessions.
 
-  - Create task: echo '{"tasks":[{"name":"Task","status":"doing"}]}' | ie plan
-  - View status: ie status
-  - Record decision: ie log decision "..."
-  - Full help: ie --help
+## Task Lifecycle (Status-Driven)
+
+  Planning Phase (status: todo)
+    - Tasks can be rough, no spec required
+    - Focus on structure and breakdown
+
+  Execution Phase (status: doing)
+    - Task MUST have spec (goal + approach)
+    - This is when real work happens
+
+  Completion (status: done)
+    - All children must be done first
+    - Marks task as finished
+
+## Quick Commands
+  ie status                              # View current focus
+  echo '{"tasks":[...]}' | ie plan       # Create/update/complete tasks
+  ie log decision "why I chose X"        # Record decisions
+  ie log blocker "waiting for Y"         # Record blockers
+  ie search "keyword"                    # Search tasks and events
+
+## When Plans Change
+  Use \`ie plan\` again to update:
+    - Task names, descriptions (spec)
+    - Parent-child relationships
+    - Status transitions
+
+  This keeps human and AI synchronized on current state.
 
 Note: This session uses the full binary path. Future sessions will use 'ie' directly.
 </system-reminder>
@@ -221,10 +247,30 @@ try {
 
 console.log(`
 <system-reminder>
-# Use \`ie plan\` instead of TodoWrite (cross-session, hierarchical, decision-tracking)
+# Task Management with ie (replaces TodoWrite for persistent work)
 
-  - Session start: ie status
-  - Create/update tasks: echo '{...}' | ie plan
-  - Record decisions: ie log decision "..."
-  - Details: ie --help
+## ie vs TodoWrite
+  - TodoWrite: Single session, disposable tasks
+  - ie: Cross-session, hierarchical, decision-tracking (human + AI collaboration)
+
+## Task Status Lifecycle
+  todo  → Planning phase, tasks can be rough (no spec required)
+  doing → Execution phase, MUST have spec (goal + approach)
+  done  → Completion, all children must be done first
+
+## Core Commands
+  ie status                        # Restore context at session start
+  echo '{...}' | ie plan           # Create/update/complete tasks
+  ie log decision "..."            # Record WHY you made choices
+  ie log blocker "..."             # Record impediments
+  ie search "query"                # Find tasks and events
+
+## When Plans Change
+  Re-run \`ie plan\` to update task names, descriptions, or relationships.
+  This keeps human and AI synchronized on the current state.
+
+## Key Rules
+  - status:doing requires spec (description with goal + approach)
+  - status:done requires all children complete first
+  - parent_id:null creates independent root task (ignores current focus)
 </system-reminder>`);

@@ -1,12 +1,17 @@
 {
   "name": "intent-engine",
-  "version": "0.10.4",
-  "description": "AI Long-Term Task Memory - Cross-session task tracking for Claude Code",
+  "version": "0.10.5",
+  "description": "AI Long-Term Task Memory - Cross-session task tracking with hierarchical breakdown and decision logs",
   "author": {
     "name": "wayfind"
   },
-  "repository": "https://github.com/wayfind/origin-task",
+  "repository": "https://github.com/anthropics/claude-code-plugins",
   "license": "MIT OR Apache-2.0",
-  "keywords": ["task", "memory", "session", "hook", "ai", "productivity"],
+  "keywords": [
+    "task", "tasks", "plan", "planning", "todo", "progress", "tracking",
+    "decision", "milestone", "blocker", "subtask", "hierarchy",
+    "cross-session", "persist", "memory",
+    "任务", "计划", "规划", "待办", "进度", "追踪", "决策", "里程碑"
+  ],
   "skills": ["./skills/intent-engine"]
 }
