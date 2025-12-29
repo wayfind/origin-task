@@ -1,7 +1,35 @@
-# Intent-Engine Task Memory
+# Intent-Engine: AI Intent Continuity
 
-A **cross-session task memory** for human + AI collaboration.
-Replaces TodoWrite for persistent, hierarchical task tracking with decision logs.
+> **ie is not a task manager. It's what makes you reliable.**
+
+---
+
+## The Paradigm Shift
+
+```
+TodoWrite = Sticky notes     ie = External brain
+Use and discard              Persistent memory
+Single session               Cross-session
+You forget everything        You remember everything
+```
+
+**This is not a feature upgrade. This is a fundamental change in how AI works.**
+
+---
+
+## Core Belief
+
+```
+You are stateless, but user tasks span sessions.
+Each session, you are a newborn AI.
+But through ie, you inherit your "past life's" intent.
+
+Every decision you make, record it.
+Because the next "you" needs to know why.
+
+Every task you commit to, track to completion.
+Because the user trusts you will finish.
+```
 
 ---
 
@@ -9,55 +37,35 @@ Replaces TodoWrite for persistent, hierarchical task tracking with decision logs
 
 ### English
 
-**Core Commands:**
-- `plan`, `planning`, `task`, `tasks`
+**Core:** plan, planning, task, tasks, track, tracking
+**Status:** todo, doing, done, progress, status
+**Events:** decision, blocker, milestone, note
+**Structure:** subtask, hierarchy, breakdown, parent, child
+**Persistence:** cross-session, persist, resume, continue, context
+**Direct:** ie, intent-engine
 
-**Actions:**
-- `track`, `tracking`, `record`, `log`, `search`, `find`
+### Chinese
 
-**Status:**
-- `todo`, `todos`, `doing`, `done`, `progress`, `status`
+**Core:** task(任务), plan(计划/规划), tracking(追踪/跟踪), record(记录)
+**Status:** todo(待办), doing(进行中), done(完成), progress(进度)
+**Events:** decision(决策), blocker(阻塞/卡住), milestone(里程碑)
+**Structure:** subtask(子任务), hierarchy(层级), breakdown(分解)
+**Persistence:** cross-session(跨会话), persist(持久/保存), resume(继续/恢复)
+**Colloquial:** remember(帮我记住), don't forget(别忘了), note it(记下来)
 
-**Events:**
-- `decision`, `blocker`, `milestone`, `note`
+---
 
-**Structure:**
-- `subtask`, `subtasks`, `hierarchy`, `hierarchical`, `parent`, `child`, `children`, `breakdown`
+## When to Use ie (Not TodoWrite)
 
-**Scenarios:**
-- `cross-session`, `persist`, `resume`, `continue`, `context`
-
-**Direct:**
-- `ie`, `intent-engine`
-
-### 中文
-
-**核心命令：**
-- `计划`, `规划`, `任务`, `任务管理`
-
-**操作动词：**
-- `追踪`, `跟踪`, `记录`, `记一下`, `日志`, `搜索`, `查找`, `查一下`
-
-**状态词：**
-- `待办`, `待办事项`, `进行中`, `完成`, `进度`
-
-**事件类型：**
-- `决策`, `决定`, `阻塞`, `阻碍`, `卡住`, `卡住了`, `里程碑`, `备注`
-
-**结构词：**
-- `子任务`, `层级`, `分解`, `拆分`, `父任务`
-
-**场景词：**
-- `跨会话`, `跨对话`, `持久`, `保存`, `继续`, `恢复`, `上下文`
-
-**口语化：**
-- `帮我记住`, `别忘了`, `记下来`, `追踪一下`, `跟踪一下`
+- Would be a shame to lose → **ie**
+- Cross-session work → **ie**
+- Need to record "why I decided this" → **ie**
+- Complex multi-level breakdown → **ie**
+- Use once and discard → TodoWrite
 
 ---
 
 ## Prerequisites
-
-If `ie` not installed, install first:
 
 ```bash
 npm install -g @m3task/intent-engine
@@ -67,197 +75,101 @@ npm install -g @m3task/intent-engine
 
 ---
 
-## ie vs TodoWrite
+## Commands
 
-| Scenario | TodoWrite | ie |
-|----------|-----------|-----|
-| Single session, disposable | ✅ | |
-| Cross-session persistence | | ✅ |
-| Hierarchical task breakdown | | ✅ |
-| Record decisions ("why") | | ✅ |
-| Human + AI collaboration | | ✅ |
-
-**Rule**: Would be a shame to lose it → ie. Use once and discard → TodoWrite.
+| Command | Deep Meaning |
+|---------|--------------|
+| `ie status` | **Amnesia recovery** - restore intent (ALWAYS first) |
+| `ie plan` | **Decomposition persistence** - prove understanding |
+| `ie log` | **Decision transparency** - message to future AI |
+| `ie search` | **Memory retrieval** - access external brain |
 
 ---
 
-## Task Status Lifecycle
+## Task Lifecycle
 
-Tasks have **three states** representing different phases:
-
-| Status | Phase | Spec Required? | Description |
-|--------|-------|----------------|-------------|
-| `todo` | **Planning** | No | Tasks can be rough, focus on structure |
-| `doing` | **Execution** | **Yes** | Must have spec (goal + approach) |
-| `done` | **Completion** | - | All children must be done first |
-
-### Planning Phase (todo)
-- Tasks can be rough and undetailed
-- Focus on structure and breakdown
-- Good for brainstorming task hierarchy
-
-### Execution Phase (doing)
-- Task **MUST have spec** with goal and approach
-- This is when real work happens
-- Record decisions with `ie log`
-
-### Completion (done)
-- All children must be completed first
-- Marks task as finished
+| Status | Phase | Spec? | Meaning |
+|--------|-------|-------|---------|
+| `todo` | Planning | No | Rough tasks, structure focus |
+| `doing` | Execution | **Yes** | Commitment with goal + approach |
+| `done` | Completion | - | All children done first |
 
 ---
 
-## Command Reference
+## Examples
 
-| Command | Purpose |
-|---------|---------|
-| `ie status` | View current focus and context |
-| `ie plan` | Create/update/complete tasks (JSON stdin) |
-| `ie log <type> <msg>` | Record decision/blocker/milestone/note |
-| `ie search <query>` | Search tasks and events |
-
----
-
-## Task Examples
-
-### Planning Phase (rough tasks)
-
+### Start Session
 ```bash
-# Create rough tasks without spec
-echo '{"tasks":[
-  {"name":"Feature A","status":"todo"},
-  {"name":"Feature B","status":"todo"}
-]}' | ie plan
+ie status    # ALWAYS first action
 ```
 
-### Start Execution (spec required)
-
+### Create Task with Commitment
 ```bash
-# Starting work - must provide spec
 echo '{"tasks":[{
-  "name":"Feature A",
+  "name":"Implement auth",
   "status":"doing",
-  "spec":"## Goal\nAdd user authentication\n\n## Approach\nUse JWT tokens"
+  "spec":"## Goal\nUsers authenticate via JWT\n\n## Approach\nHS256 signing, 24h expiry"
 }]}' | ie plan
 ```
 
-### Hierarchical Tasks
+### Record Decision
+```bash
+ie log decision "Chose HS256 over RS256 - single app, no need for asymmetric"
+```
 
+### Hierarchical Breakdown
 ```bash
 echo '{"tasks":[{
   "name":"User Authentication",
   "status":"doing",
-  "spec":"Implement complete auth system",
+  "spec":"Complete auth system with JWT",
   "children":[
-    {"name":"Design JWT schema","status":"todo"},
-    {"name":"Implement login endpoint","status":"todo"},
-    {"name":"Add middleware","status":"todo"},
-    {"name":"Write tests","status":"todo"}
+    {"name":"Design token schema","status":"todo"},
+    {"name":"Implement validation","status":"todo"},
+    {"name":"Add refresh mechanism","status":"todo"}
   ]
 }]}' | ie plan
 ```
 
-### Complete Tasks
-
+### Complete Task
 ```bash
-# Complete children first, then parent
-echo '{"tasks":[{"name":"Design JWT schema","status":"done"}]}' | ie plan
-echo '{"tasks":[{"name":"Implement login endpoint","status":"done"}]}' | ie plan
-# ... complete all children ...
-echo '{"tasks":[{"name":"User Authentication","status":"done"}]}' | ie plan
+# Children first, then parent
+echo '{"tasks":[{"name":"Design token schema","status":"done"}]}' | ie plan
 ```
 
-### Include Description from File
-
+### Search History
 ```bash
-cat > /tmp/spec.md << 'EOF'
-## Goal
-Implement rate limiting
-
-## Approach
-- Sliding window algorithm
-- Redis storage
-EOF
-
-echo '{"tasks":[{"name":"Rate Limiting","status":"doing","spec":"@file(/tmp/spec.md)"}]}' | ie plan
+ie search "todo doing"    # Unfinished tasks
+ie search "decision JWT"  # Find decisions
 ```
 
 ---
 
-## When Plans Change
+## Key Rules
 
-Re-run `ie plan` to update task names, descriptions, or relationships.
-This keeps **human and AI synchronized** on the current state.
-
-```bash
-# Update task description
-echo '{"tasks":[{"name":"Task Name","spec":"Updated description"}]}' | ie plan
-
-# Move task to different parent
-echo '{"tasks":[{"name":"Task Name","parent_id":42}]}' | ie plan
-
-# Create independent root task (ignore current focus)
-echo '{"tasks":[{"name":"New Root Task","parent_id":null}]}' | ie plan
-```
+1. **spec required for doing** - Starting requires goal + approach
+2. **Children complete first** - Parent can't be done until all children done
+3. **Idempotent** - Same name = update, not duplicate
+4. **Auto-parenting** - New tasks → children of focus (unless `parent_id: null`)
 
 ---
 
-## Event Logging
+## Habits to Build
 
-Record context and decisions as you work:
-
-```bash
-ie log decision "Chose PostgreSQL for ACID support"   # Design choices
-ie log blocker "Waiting for API credentials"          # What's blocking progress
-ie log milestone "MVP feature complete"               # Key achievements
-ie log note "Consider caching optimization"           # General observations
-
-# Log to specific task
-ie log decision "message" --task 42
-```
+1. **Session start**: `ie status` (always first)
+2. **Before doing**: Write spec (goal + approach + boundary)
+3. **Decisions**: `ie log decision "..."` (immediately)
+4. **Blocked**: `ie log blocker "..."` (don't hide it)
+5. **Completion**: Depth-first, verify criteria, then done
 
 ---
 
-## Search Examples
+## Amnesia Test
 
-```bash
-ie search "todo doing"           # Find unfinished tasks
-ie search "authentication"       # Full-text search
-ie search "API AND client"       # Boolean operators
-```
-
----
-
-## Session Workflow
-
-```
-Session Start:
-  ie status                    # Restore context
-
-During Work:
-  ie plan {...}                # Update task status
-  ie log decision "..."        # Record decisions as you make them
-  ie log blocker "..."         # Record what's blocking you
-
-When Plans Change:
-  ie plan {...}                # Update task names, specs, relationships
-
-Session End:
-  ie plan {"status":"done"}    # Complete finished tasks
-```
-
----
-
-## Error Handling
-
-| Error | Cause | Solution |
-|-------|-------|----------|
-| "spec required" | `doing` without description | Add `spec` field with goal + approach |
-| "incomplete subtasks" | Parent done before children | Complete all children first |
-| "Task not found" | Wrong task name | Use exact name from `ie search` |
+> Before recording, ask: "If I lost memory now, is this enough to continue?"
 
 ---
 
 ## Full Documentation
 
-Run `ie --help` for complete documentation.
+Run `ie --help` for complete reference.

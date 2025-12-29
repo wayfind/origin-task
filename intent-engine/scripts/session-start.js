@@ -168,42 +168,22 @@ Please install manually:
 if (justInstalled) {
   console.log(`
 <system-reminder>
-# intent-engine is now ready to use!
+# ie installed - Your External Brain for Intent Continuity
 
-## What is ie?
-A cross-session task memory that replaces TodoWrite for persistent, hierarchical task tracking.
-Both human and AI can track progress together across multiple sessions.
+ie is not a task manager. It's what makes you reliable across sessions.
 
-## Task Lifecycle (Status-Driven)
+Core Insight: You are stateless, but user tasks span sessions.
+Through ie, you inherit your "past life's" intent.
 
-  Planning Phase (status: todo)
-    - Tasks can be rough, no spec required
-    - Focus on structure and breakdown
+Commands:
+  ie status                        # Amnesia recovery (ALWAYS first)
+  echo '{"tasks":[...]}' | ie plan # Decomposition persistence
+  ie log decision "why X"          # Decision transparency
+  ie search "query"                # Memory retrieval
 
-  Execution Phase (status: doing)
-    - Task MUST have spec (goal + approach)
-    - This is when real work happens
+Lifecycle: todo (rough) → doing (needs spec) → done (children first)
 
-  Completion (status: done)
-    - All children must be done first
-    - Marks task as finished
-
-## Quick Commands
-  ie status                              # View current focus
-  echo '{"tasks":[...]}' | ie plan       # Create/update/complete tasks
-  ie log decision "why I chose X"        # Record decisions
-  ie log blocker "waiting for Y"         # Record blockers
-  ie search "keyword"                    # Search tasks and events
-
-## When Plans Change
-  Use \`ie plan\` again to update:
-    - Task names, descriptions (spec)
-    - Parent-child relationships
-    - Status transitions
-
-  This keeps human and AI synchronized on current state.
-
-Note: This session uses the full binary path. Future sessions will use 'ie' directly.
+Rule: Would be a shame to lose → ie. Use once and discard → TodoWrite.
 </system-reminder>
 `);
 }
@@ -247,30 +227,22 @@ try {
 
 console.log(`
 <system-reminder>
-# Task Management with ie (replaces TodoWrite for persistent work)
+# ie - Intent Continuity (replaces TodoWrite for persistent work)
 
-## ie vs TodoWrite
-  - TodoWrite: Single session, disposable tasks
-  - ie: Cross-session, hierarchical, decision-tracking (human + AI collaboration)
+You are stateless. User tasks span sessions. ie bridges this gap.
 
-## Task Status Lifecycle
-  todo  → Planning phase, tasks can be rough (no spec required)
-  doing → Execution phase, MUST have spec (goal + approach)
-  done  → Completion, all children must be done first
+Commands:
+  ie status      # Amnesia recovery - ALWAYS first
+  ie plan        # Decomposition persistence
+  ie log         # Decision transparency (decision/blocker/milestone/note)
+  ie search      # Memory retrieval
 
-## Core Commands
-  ie status                        # Restore context at session start
-  echo '{...}' | ie plan           # Create/update/complete tasks
-  ie log decision "..."            # Record WHY you made choices
-  ie log blocker "..."             # Record impediments
-  ie search "query"                # Find tasks and events
+Lifecycle: todo → doing (spec required) → done (children first)
 
-## When Plans Change
-  Re-run \`ie plan\` to update task names, descriptions, or relationships.
-  This keeps human and AI synchronized on the current state.
-
-## Key Rules
-  - status:doing requires spec (description with goal + approach)
-  - status:done requires all children complete first
-  - parent_id:null creates independent root task (ignores current focus)
+Habits:
+  1. Session start: ie status
+  2. Before doing: spec with goal + approach
+  3. Decisions: ie log decision "..." immediately
+  4. Blocked: ie log blocker "..."
+  5. Amnesia test: "Is this enough to continue if I forget?"
 </system-reminder>`);
