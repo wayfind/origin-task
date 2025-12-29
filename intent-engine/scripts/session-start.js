@@ -136,8 +136,20 @@ function installIe() {
 
 // === Main logic ===
 
+// Debug: Show environment info
+const DEBUG = process.env.IE_DEBUG === '1';
+if (DEBUG) {
+  console.log(`[DEBUG] Platform: ${process.platform}`);
+  console.log(`[DEBUG] CLAUDE_PROJECT_DIR: ${process.env.CLAUDE_PROJECT_DIR}`);
+  console.log(`[DEBUG] CLAUDE_PLUGIN_ROOT: ${process.env.CLAUDE_PLUGIN_ROOT}`);
+}
+
 let iePath = findIeBinary();
 let justInstalled = false;
+
+if (DEBUG) {
+  console.log(`[DEBUG] findIeBinary result: ${iePath}`);
+}
 
 if (!iePath) {
   const installed = installIe();
@@ -198,7 +210,8 @@ if (fs.existsSync(projectDir) && !fs.existsSync(ieDir)) {
     spawnSync(iePath, ['init'], {
       cwd: projectDir,
       stdio: 'ignore',
-      timeout: 10000
+      timeout: 10000,
+      shell: isWin  // Windows needs shell: true
     });
   } catch {}
 }
@@ -210,8 +223,15 @@ try {
     cwd: projectDir,
     encoding: 'utf8',
     timeout: 15000,
-    env: { ...process.env, IE_SESSION_ID: sessionId }
+    env: { ...process.env, IE_SESSION_ID: sessionId },
+    shell: isWin  // Windows needs shell: true to run .cmd files
   });
+
+  if (DEBUG) {
+    console.log(`[DEBUG] ie status exit code: ${result.status}`);
+    console.log(`[DEBUG] ie status stdout length: ${(result.stdout || '').length}`);
+    console.log(`[DEBUG] ie status stderr: ${result.stderr || '(none)'}`);
+  }
 
   if (result.stdout) {
     console.log(result.stdout);
