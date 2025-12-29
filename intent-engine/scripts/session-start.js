@@ -79,17 +79,42 @@ function findIeBinary() {
     const checkCmd = isWin ? 'where ie' : 'command -v ie';
     const result = execSync(checkCmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
     const iePath = result.trim().split('\n')[0];
-    if (iePath && fs.existsSync(iePath) && verifyIeBinary(iePath)) {
-      return iePath;
+    if (DEBUG) {
+      console.log(`[DEBUG] Method 1 - where/command -v result: ${iePath}`);
     }
-  } catch {}
+    if (iePath && fs.existsSync(iePath)) {
+      const verified = verifyIeBinary(iePath);
+      if (DEBUG) {
+        console.log(`[DEBUG] Method 1 - verifyIeBinary result: ${verified}`);
+      }
+      if (verified) {
+        return iePath;
+      }
+    }
+  } catch (e) {
+    if (DEBUG) {
+      console.log(`[DEBUG] Method 1 failed: ${e.message}`);
+    }
+  }
 
   // Method 2: Check npm global bin directory
   const npmBinDir = getNpmGlobalBinDir();
+  if (DEBUG) {
+    console.log(`[DEBUG] Method 2 - npm bin dir: ${npmBinDir}`);
+  }
   if (npmBinDir) {
     const iePath = path.join(npmBinDir, isWin ? 'ie.cmd' : 'ie');
-    if (fs.existsSync(iePath) && verifyIeBinary(iePath)) {
-      return iePath;
+    if (DEBUG) {
+      console.log(`[DEBUG] Method 2 - checking: ${iePath}, exists: ${fs.existsSync(iePath)}`);
+    }
+    if (fs.existsSync(iePath)) {
+      const verified = verifyIeBinary(iePath);
+      if (DEBUG) {
+        console.log(`[DEBUG] Method 2 - verifyIeBinary result: ${verified}`);
+      }
+      if (verified) {
+        return iePath;
+      }
     }
   }
 
