@@ -1,6 +1,6 @@
 {
   "name": "intent-engine",
-  "version": "0.10.6",
+  "version": "0.10.8",
   "description": "AI Long-Term Task Memory - Cross-session task tracking with hierarchical breakdown and decision logs",
   "author": {
     "name": "wayfind"
