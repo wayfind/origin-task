@@ -136,14 +136,14 @@ function installIe() {
 
 // === Main logic ===
 
-// Always output diagnostic info for troubleshooting
-console.log(`[ie-hook] Platform: ${process.platform}, Node: ${process.version}`);
-console.log(`[ie-hook] CLAUDE_PROJECT_DIR: ${process.env.CLAUDE_PROJECT_DIR || '(not set)'}`);
+// Output to stderr for visibility (stdout goes to context, stderr shows to user)
+console.error(`[ie-hook] Platform: ${process.platform}, Node: ${process.version}`);
+console.error(`[ie-hook] CLAUDE_PROJECT_DIR: ${process.env.CLAUDE_PROJECT_DIR || '(not set)'}`);
 
 let iePath = findIeBinary();
 let justInstalled = false;
 
-console.log(`[ie-hook] Found ie binary: ${iePath || '(not found)'}`);
+console.error(`[ie-hook] Found ie binary: ${iePath || '(not found)'}`);
 
 if (!iePath) {
   const installed = installIe();
@@ -221,10 +221,10 @@ try {
     shell: isWin  // Windows needs shell: true to run .cmd files
   });
 
-  console.log(`[ie-hook] ie status exit: ${result.status}, stdout: ${(result.stdout || '').length} chars`);
+  console.error(`[ie-hook] ie status exit: ${result.status}, stdout: ${(result.stdout || '').length} chars`);
 
   if (result.error) {
-    console.log(`[ie-hook] spawn error: ${result.error.message}`);
+    console.error(`[ie-hook] spawn error: ${result.error.message}`);
   }
 
   if (result.stdout) {
@@ -234,7 +234,7 @@ try {
     console.error(result.stderr);
   }
 } catch (e) {
-  console.log('[ie-hook] Failed to run ie status:', e.message);
+  console.error('[ie-hook] Failed to run ie status:', e.message);
 }
 
 // === Output system reminder ===
