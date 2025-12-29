@@ -53,7 +53,7 @@ function verifyIeBinary(iePath) {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: isWin  // Windows needs shell: true
+      shell: isWin
     });
     return result.status === 0;
   } catch {
@@ -79,42 +79,17 @@ function findIeBinary() {
     const checkCmd = isWin ? 'where ie' : 'command -v ie';
     const result = execSync(checkCmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
     const iePath = result.trim().split('\n')[0];
-    if (DEBUG) {
-      console.log(`[DEBUG] Method 1 - where/command -v result: ${iePath}`);
+    if (iePath && fs.existsSync(iePath) && verifyIeBinary(iePath)) {
+      return iePath;
     }
-    if (iePath && fs.existsSync(iePath)) {
-      const verified = verifyIeBinary(iePath);
-      if (DEBUG) {
-        console.log(`[DEBUG] Method 1 - verifyIeBinary result: ${verified}`);
-      }
-      if (verified) {
-        return iePath;
-      }
-    }
-  } catch (e) {
-    if (DEBUG) {
-      console.log(`[DEBUG] Method 1 failed: ${e.message}`);
-    }
-  }
+  } catch {}
 
   // Method 2: Check npm global bin directory
   const npmBinDir = getNpmGlobalBinDir();
-  if (DEBUG) {
-    console.log(`[DEBUG] Method 2 - npm bin dir: ${npmBinDir}`);
-  }
   if (npmBinDir) {
     const iePath = path.join(npmBinDir, isWin ? 'ie.cmd' : 'ie');
-    if (DEBUG) {
-      console.log(`[DEBUG] Method 2 - checking: ${iePath}, exists: ${fs.existsSync(iePath)}`);
-    }
-    if (fs.existsSync(iePath)) {
-      const verified = verifyIeBinary(iePath);
-      if (DEBUG) {
-        console.log(`[DEBUG] Method 2 - verifyIeBinary result: ${verified}`);
-      }
-      if (verified) {
-        return iePath;
-      }
+    if (fs.existsSync(iePath) && verifyIeBinary(iePath)) {
+      return iePath;
     }
   }
 
@@ -162,20 +137,8 @@ function installIe() {
 
 // === Main logic ===
 
-// Debug: Show environment info
-const DEBUG = process.env.IE_DEBUG === '1';
-if (DEBUG) {
-  console.log(`[DEBUG] Platform: ${process.platform}`);
-  console.log(`[DEBUG] CLAUDE_PROJECT_DIR: ${process.env.CLAUDE_PROJECT_DIR}`);
-  console.log(`[DEBUG] CLAUDE_PLUGIN_ROOT: ${process.env.CLAUDE_PLUGIN_ROOT}`);
-}
-
 let iePath = findIeBinary();
 let justInstalled = false;
-
-if (DEBUG) {
-  console.log(`[DEBUG] findIeBinary result: ${iePath}`);
-}
 
 if (!iePath) {
   const installed = installIe();
@@ -237,7 +200,7 @@ if (fs.existsSync(projectDir) && !fs.existsSync(ieDir)) {
       cwd: projectDir,
       stdio: 'ignore',
       timeout: 10000,
-      shell: isWin  // Windows needs shell: true
+      shell: isWin
     });
   } catch {}
 }
@@ -250,14 +213,8 @@ try {
     encoding: 'utf8',
     timeout: 15000,
     env: { ...process.env, IE_SESSION_ID: sessionId },
-    shell: isWin  // Windows needs shell: true to run .cmd files
+    shell: isWin
   });
-
-  if (DEBUG) {
-    console.log(`[DEBUG] ie status exit code: ${result.status}`);
-    console.log(`[DEBUG] ie status stdout length: ${(result.stdout || '').length}`);
-    console.log(`[DEBUG] ie status stderr: ${result.stderr || '(none)'}`);
-  }
 
   if (result.stdout) {
     console.log(result.stdout);
