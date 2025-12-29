@@ -52,7 +52,8 @@ function verifyIeBinary(iePath) {
     const result = spawnSync(iePath, ['--version'], {
       encoding: 'utf8',
       timeout: 5000,
-      stdio: ['ignore', 'pipe', 'pipe']
+      stdio: ['ignore', 'pipe', 'pipe'],
+      shell: isWin  // Windows needs shell: true
     });
     return result.status === 0;
   } catch {
@@ -136,14 +137,20 @@ function installIe() {
 
 // === Main logic ===
 
-// Output to stderr for visibility (stdout goes to context, stderr shows to user)
-console.error(`[ie-hook] Platform: ${process.platform}, Node: ${process.version}`);
-console.error(`[ie-hook] CLAUDE_PROJECT_DIR: ${process.env.CLAUDE_PROJECT_DIR || '(not set)'}`);
+// Debug: Show environment info
+const DEBUG = process.env.IE_DEBUG === '1';
+if (DEBUG) {
+  console.log(`[DEBUG] Platform: ${process.platform}`);
+  console.log(`[DEBUG] CLAUDE_PROJECT_DIR: ${process.env.CLAUDE_PROJECT_DIR}`);
+  console.log(`[DEBUG] CLAUDE_PLUGIN_ROOT: ${process.env.CLAUDE_PLUGIN_ROOT}`);
+}
 
 let iePath = findIeBinary();
 let justInstalled = false;
 
-console.error(`[ie-hook] Found ie binary: ${iePath || '(not found)'}`);
+if (DEBUG) {
+  console.log(`[DEBUG] findIeBinary result: ${iePath}`);
+}
 
 if (!iePath) {
   const installed = installIe();
@@ -221,10 +228,10 @@ try {
     shell: isWin  // Windows needs shell: true to run .cmd files
   });
 
-  console.error(`[ie-hook] ie status exit: ${result.status}, stdout: ${(result.stdout || '').length} chars`);
-
-  if (result.error) {
-    console.error(`[ie-hook] spawn error: ${result.error.message}`);
+  if (DEBUG) {
+    console.log(`[DEBUG] ie status exit code: ${result.status}`);
+    console.log(`[DEBUG] ie status stdout length: ${(result.stdout || '').length}`);
+    console.log(`[DEBUG] ie status stderr: ${result.stderr || '(none)'}`);
   }
 
   if (result.stdout) {
@@ -234,7 +241,7 @@ try {
     console.error(result.stderr);
   }
 } catch (e) {
-  console.error('[ie-hook] Failed to run ie status:', e.message);
+  console.log('Failed to run ie status:', e.message);
 }
 
 // === Output system reminder ===
