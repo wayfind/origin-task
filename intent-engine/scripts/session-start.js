@@ -279,17 +279,18 @@ function installIe() {
   ttyLog('========================================');
 
   debugLog('installIe: running npm install -g @origintask/intent-engine');
-  // Use temp directory as cwd to avoid issues with project's or home's node_modules
-  const result = runCommand('npm', ['install', '-g', '@origintask/intent-engine'], {
-    timeout: 120000,  // 2 minutes for slow networks
-    cwd: os.tmpdir()
-  });
-  debugLog(`installIe: result.success=${result.success}, status=${result.error?.message}`);
-  debugLog(`installIe: stdout=${result.stdout?.slice(0,200)}`);
-  debugLog(`installIe: stderr=${result.stderr?.slice(0,200)}`);
-
-  if (!result.success) {
-    const errorMsg = (result.stderr || result.stdout || result.error?.message || 'Unknown error').slice(0, 300);
+  // Use execSync with shell to run npm install (avoids node_modules lookup issues)
+  try {
+    const output = execSync('npm install -g @origintask/intent-engine', {
+      encoding: 'utf8',
+      timeout: 120000,
+      stdio: ['pipe', 'pipe', 'pipe'],
+      shell: true,
+      windowsHide: true
+    });
+    debugLog(`installIe: success, output=${output?.slice(0,200)}`);
+  } catch (e) {
+    const errorMsg = (e.stderr || e.stdout || e.message || 'Unknown error').slice(0, 300);
     debugLog(`installIe: failed with: ${errorMsg}`);
     ttyLog('  ✗ Installation failed: ' + errorMsg);
     ttyLog('========================================');
