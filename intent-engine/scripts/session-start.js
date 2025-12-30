@@ -265,7 +265,9 @@ function isWindowsNpm() {
  * Install intent-engine via npm
  */
 function installIe() {
+  debugLog('installIe: starting');
   if (!commandExists('npm')) {
+    debugLog('installIe: npm not found');
     ttyLog('[intent-engine] npm not found. Cannot auto-install.');
     return false;
   }
@@ -276,12 +278,17 @@ function installIe() {
   ttyLog('  This may take a few seconds.');
   ttyLog('========================================');
 
+  debugLog('installIe: running npm install -g @origintask/intent-engine');
   const result = runCommand('npm', ['install', '-g', '@origintask/intent-engine'], {
     timeout: 120000  // 2 minutes for slow networks
   });
+  debugLog(`installIe: result.success=${result.success}, status=${result.error?.message}`);
+  debugLog(`installIe: stdout=${result.stdout?.slice(0,200)}`);
+  debugLog(`installIe: stderr=${result.stderr?.slice(0,200)}`);
 
   if (!result.success) {
     const errorMsg = (result.stderr || result.stdout || result.error?.message || 'Unknown error').slice(0, 300);
+    debugLog(`installIe: failed with: ${errorMsg}`);
     ttyLog('  ✗ Installation failed: ' + errorMsg);
     ttyLog('========================================');
     return false;
