@@ -5,10 +5,28 @@
 const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const os = require('os');
 
 // === Platform detection ===
 
 const isWin = process.platform === 'win32';
+
+// === Debug logging ===
+const DEBUG = process.env.IE_DEBUG === '1';
+const debugLogFile = path.join(os.tmpdir(), 'ie-session-start.log');
+
+function debugLog(message) {
+  if (DEBUG) {
+    const timestamp = new Date().toISOString();
+    const line = `[${timestamp}] ${message}\n`;
+    try {
+      fs.appendFileSync(debugLogFile, line);
+    } catch {}
+  }
+}
+
+debugLog('=== Session start hook begins ===');
+debugLog(`Platform: ${process.platform}, isWin: ${isWin}`);
 
 // === TTY output for user-visible progress ===
 // Use stderr for user-visible messages (not captured by Claude Code for SessionStart)
@@ -91,6 +109,7 @@ function commandExists(cmd) {
  * Windows: .cmd files MUST be executed through shell
  */
 function verifyIeBinary(iePath) {
+  debugLog(`verifyIeBinary: checking ${iePath}`);
   try {
     // Windows: use shell with combined command string to avoid DEP0190 warning
     const result = isWin
@@ -107,9 +126,11 @@ function verifyIeBinary(iePath) {
           stdio: ['ignore', 'pipe', 'pipe'],
           windowsHide: true
         });
-    // Check both status and error
-    return result.status === 0 && !result.error;
-  } catch {
+    const ok = result.status === 0 && !result.error;
+    debugLog(`verifyIeBinary: status=${result.status}, error=${result.error}, ok=${ok}`);
+    return ok;
+  } catch (e) {
+    debugLog(`verifyIeBinary: exception ${e.message}`);
     return false;
   }
 }
@@ -132,20 +153,29 @@ function getNpmGlobalBinDir() {
  * Find ie binary in PATH or npm global directory
  */
 function findIeBinary() {
+  debugLog('findIeBinary: starting search');
+
   // Method 1: Check if ie is in PATH
   try {
     const output = execCommand(isWin ? 'where ie' : 'command -v ie');
     const iePath = output.split('\n')[0].trim();
+    debugLog(`findIeBinary: PATH lookup returned: ${iePath}`);
     if (iePath && fs.existsSync(iePath) && verifyIeBinary(iePath)) {
+      debugLog(`findIeBinary: found via PATH: ${iePath}`);
       return iePath;
     }
-  } catch {}
+  } catch (e) {
+    debugLog(`findIeBinary: PATH lookup failed: ${e.message}`);
+  }
 
   // Method 2: Check npm global bin directory
   const npmBinDir = getNpmGlobalBinDir();
+  debugLog(`findIeBinary: npm bin dir: ${npmBinDir}`);
   if (npmBinDir) {
     const iePath = path.join(npmBinDir, isWin ? 'ie.cmd' : 'ie');
+    debugLog(`findIeBinary: checking npm path: ${iePath}`);
     if (fs.existsSync(iePath) && verifyIeBinary(iePath)) {
+      debugLog(`findIeBinary: found via npm: ${iePath}`);
       return iePath;
     }
   }
@@ -158,12 +188,15 @@ function findIeBinary() {
       path.join(process.env.ProgramFiles || '', 'nodejs', 'ie.cmd')
     ];
     for (const p of commonPaths) {
+      debugLog(`findIeBinary: checking common path: ${p}`);
       if (p && fs.existsSync(p) && verifyIeBinary(p)) {
+        debugLog(`findIeBinary: found via common path: ${p}`);
         return p;
       }
     }
   }
 
+  debugLog('findIeBinary: not found');
   return null;
 }
 
@@ -236,17 +269,22 @@ function installIe() {
 
 // === Main logic ===
 
+debugLog('=== Main logic starts ===');
 let iePath = findIeBinary();
+debugLog(`Initial findIeBinary result: ${iePath}`);
 let justInstalled = false;
 
 if (!iePath) {
+  debugLog('ie not found, attempting install');
   const installed = installIe();
+  debugLog(`installIe result: ${installed}`);
   if (installed) {
     // Wait a moment for filesystem to sync on Windows
     if (isWin) {
       try { execSync('timeout /t 1 /nobreak >nul 2>&1', { shell: true }); } catch {}
     }
     iePath = findIeBinary();
+    debugLog(`Post-install findIeBinary result: ${iePath}`);
     if (iePath) {
       justInstalled = true;
     } else {
