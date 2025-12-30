@@ -279,8 +279,10 @@ function installIe() {
   ttyLog('========================================');
 
   debugLog('installIe: running npm install -g @origintask/intent-engine');
+  // Use home directory as cwd to avoid issues with project's node_modules
   const result = runCommand('npm', ['install', '-g', '@origintask/intent-engine'], {
-    timeout: 120000  // 2 minutes for slow networks
+    timeout: 120000,  // 2 minutes for slow networks
+    cwd: os.homedir()
   });
   debugLog(`installIe: result.success=${result.success}, status=${result.error?.message}`);
   debugLog(`installIe: stdout=${result.stdout?.slice(0,200)}`);
