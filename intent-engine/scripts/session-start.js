@@ -10,6 +10,38 @@ const path = require('path');
 
 const isWin = process.platform === 'win32';
 
+// === TTY output for user-visible progress ===
+// Write directly to terminal, bypassing stdout capture by Claude Code
+
+let ttyFd = null;
+try {
+  ttyFd = fs.openSync(isWin ? 'CON' : '/dev/tty', 'w');
+} catch {
+  // TTY not available (e.g., non-interactive session)
+}
+
+/**
+ * Output message directly to user's terminal (not captured by Claude Code)
+ */
+function ttyLog(message) {
+  if (ttyFd !== null) {
+    try {
+      fs.writeSync(ttyFd, message + '\n');
+    } catch {}
+  }
+}
+
+/**
+ * Close TTY file descriptor
+ */
+function closeTty() {
+  if (ttyFd !== null) {
+    try {
+      fs.closeSync(ttyFd);
+    } catch {}
+  }
+}
+
 // === Parse stdin (session_id) ===
 
 let sessionId = '';
@@ -67,16 +99,25 @@ function commandExists(cmd) {
 
 /**
  * Verify ie binary works by running --version
- * Windows: .cmd files can be executed directly without shell
+ * Windows: .cmd files MUST be executed through shell
  */
 function verifyIeBinary(iePath) {
   try {
-    const result = spawnSync(iePath, ['--version'], {
-      encoding: 'utf8',
-      timeout: 5000,
-      stdio: ['ignore', 'pipe', 'pipe'],
-      windowsHide: true
-    });
+    // Windows: use shell with combined command string to avoid DEP0190 warning
+    const result = isWin
+      ? spawnSync(`"${iePath}" --version`, {
+          encoding: 'utf8',
+          timeout: 5000,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true,
+          shell: true
+        })
+      : spawnSync(iePath, ['--version'], {
+          encoding: 'utf8',
+          timeout: 5000,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          windowsHide: true
+        });
     // Check both status and error
     return result.status === 0 && !result.error;
   } catch {
@@ -139,16 +180,30 @@ function findIeBinary() {
 
 /**
  * Run a command with proper error handling
+ * Windows: requires shell for .cmd files (npm.cmd, ie.cmd, etc.)
  */
-function runCommand(iePath, args, options = {}) {
-  const result = spawnSync(iePath, args, {
+function runCommand(cmd, args, options = {}) {
+  // Windows: combine command and args to avoid DEP0190 warning
+  // Quote the command and each argument for safety
+  const spawnOptions = {
     encoding: 'utf8',
     timeout: options.timeout || 15000,
     stdio: options.stdio || ['ignore', 'pipe', 'pipe'],
     cwd: options.cwd,
     env: options.env || process.env,
     windowsHide: true
-  });
+  };
+
+  let result;
+  if (isWin) {
+    const quotedArgs = args.map(a => `"${a}"`).join(' ');
+    result = spawnSync(`"${cmd}" ${quotedArgs}`, {
+      ...spawnOptions,
+      shell: true
+    });
+  } else {
+    result = spawnSync(cmd, args, spawnOptions);
+  }
 
   return {
     success: result.status === 0 && !result.error,
@@ -163,31 +218,29 @@ function runCommand(iePath, args, options = {}) {
  */
 function installIe() {
   if (!commandExists('npm')) {
-    console.log('npm not found. Cannot auto-install intent-engine.');
+    ttyLog('[intent-engine] npm not found. Cannot auto-install.');
     return false;
   }
 
-  console.log('');
-  console.log('========================================');
-  console.log('  Installing intent-engine...');
-  console.log('  This may take a few seconds.');
-  console.log('========================================');
-  console.log('');
+  ttyLog('');
+  ttyLog('========================================');
+  ttyLog('  Installing intent-engine...');
+  ttyLog('  This may take a few seconds.');
+  ttyLog('========================================');
 
   const result = runCommand('npm', ['install', '-g', '@origintask/intent-engine'], {
     timeout: 120000  // 2 minutes for slow networks
   });
 
   if (result.success) {
-    console.log('');
-    console.log('========================================');
-    console.log('  intent-engine installed successfully!');
-    console.log('========================================');
-    console.log('');
+    ttyLog('  ✓ intent-engine installed successfully!');
+    ttyLog('========================================');
+    ttyLog('');
     return true;
   } else {
     const errorMsg = (result.stderr || result.stdout || result.error?.message || 'Unknown error').slice(0, 300);
-    console.log('Installation failed:', errorMsg);
+    ttyLog('  ✗ Installation failed: ' + errorMsg);
+    ttyLog('========================================');
     return false;
   }
 }
@@ -208,7 +261,7 @@ if (!iePath) {
     if (iePath) {
       justInstalled = true;
     } else {
-      console.log('Installation succeeded but ie binary not found or not working.');
+      ttyLog('[intent-engine] Installation succeeded but ie binary not found.');
     }
   }
 }
@@ -224,6 +277,7 @@ Please install manually:
   cargo install intent-engine
   brew install wayfind/tap/intent-engine
 </system-reminder>`);
+  closeTty();
   process.exit(0);
 }
 
@@ -277,7 +331,7 @@ if (statusResult.stderr) {
   console.error(statusResult.stderr);
 }
 if (statusResult.error) {
-  console.log('Failed to run ie status:', statusResult.error.message);
+  ttyLog('[intent-engine] Failed to run ie status: ' + statusResult.error.message);
 }
 
 // === Output system reminder ===
@@ -303,3 +357,6 @@ Habits:
   4. Blocked: ie log blocker "..."
   5. Amnesia test: "Is this enough to continue if I forget?"
 </system-reminder>`);
+
+// === Cleanup ===
+closeTty();
