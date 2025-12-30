@@ -401,8 +401,19 @@ const statusResult = runCommand(iePath, ['status'], {
   env: { ...process.env, IE_SESSION_ID: sessionId }
 });
 
+debugLog(`ie status stdout length: ${statusResult.stdout?.length}`);
+debugLog(`ie status stderr length: ${statusResult.stderr?.length}`);
+
 if (statusResult.stdout) {
-  console.log(statusResult.stdout);
+  // Filter out emoji and special characters that might cause JSON parsing issues
+  const cleanOutput = statusResult.stdout
+    .replace(/[\u2700-\u27BF\u2600-\u26FF\uFE00-\uFE0F]/g, '')  // Emoji
+    .replace(/\u26A0/g, '[!]')  // Warning sign
+    .replace(/\u2192/g, '->')   // Arrow
+    .trim();
+  if (cleanOutput) {
+    console.log(cleanOutput);
+  }
 }
 if (statusResult.stderr) {
   console.error(statusResult.stderr);
@@ -425,7 +436,7 @@ Commands:
   ie log         # Decision transparency (decision/blocker/milestone/note)
   ie search      # Memory retrieval
 
-Lifecycle: todo → doing (spec required) → done (children first)
+Lifecycle: todo -> doing (spec required) -> done (children first)
 
 Habits:
   1. Session start: ie status
