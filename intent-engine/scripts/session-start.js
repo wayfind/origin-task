@@ -62,20 +62,23 @@ function closeTty() {
 // === Parse stdin (session_id) ===
 
 let sessionId = '';
+let rawStdin = '';
 try {
   // Only read stdin if it's piped (not interactive TTY)
   debugLog(`stdin.isTTY: ${process.stdin.isTTY}`);
   if (!process.stdin.isTTY) {
-    const input = fs.readFileSync(0, 'utf8').trim();
-    debugLog(`stdin input length: ${input.length}`);
-    if (input) {
-      const data = JSON.parse(input);
+    rawStdin = fs.readFileSync(0, 'utf8').trim();
+    debugLog(`stdin input length: ${rawStdin.length}`);
+    debugLog(`stdin raw (first 500 chars): ${rawStdin.slice(0, 500)}`);
+    if (rawStdin) {
+      const data = JSON.parse(rawStdin);
       sessionId = data.session_id || '';
       debugLog(`Parsed session_id: ${sessionId}`);
     }
   }
 } catch (e) {
   debugLog(`stdin parse error: ${e.message}`);
+  debugLog(`stdin raw content: ${rawStdin.slice(0, 200)}`);
 }
 
 // === Set environment variable ===
