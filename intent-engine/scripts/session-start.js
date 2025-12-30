@@ -11,6 +11,19 @@ const os = require('os');
 
 const isWin = process.platform === 'win32';
 
+// Detect WSL (Windows Subsystem for Linux)
+// WSL reports platform as 'linux' but may use Windows npm
+function isWSL() {
+  if (process.platform !== 'linux') return false;
+  try {
+    const release = fs.readFileSync('/proc/version', 'utf8').toLowerCase();
+    return release.includes('microsoft') || release.includes('wsl');
+  } catch {
+    return false;
+  }
+}
+const runningInWSL = isWSL();
+
 // === Debug logging ===
 const DEBUG = process.env.IE_DEBUG === '1';
 const debugLogFile = path.join(os.tmpdir(), 'ie-session-start.log');
@@ -26,7 +39,7 @@ function debugLog(message) {
 }
 
 debugLog('=== Session start hook begins ===');
-debugLog(`Platform: ${process.platform}, isWin: ${isWin}`);
+debugLog(`Platform: ${process.platform}, isWin: ${isWin}, runningInWSL: ${runningInWSL}`);
 
 // === TTY output for user-visible progress ===
 // Use stderr for user-visible messages (not captured by Claude Code for SessionStart)
@@ -236,6 +249,19 @@ function runCommand(cmd, args, options = {}) {
 }
 
 /**
+ * Check if npm is using Windows paths (for WSL detection)
+ */
+function isWindowsNpm() {
+  try {
+    const prefix = execCommand('npm prefix -g');
+    // Windows paths start with drive letter (C:\, D:\, etc.) or /mnt/c style
+    return /^[A-Za-z]:[\\\/]/.test(prefix) || prefix.startsWith('/mnt/');
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Install intent-engine via npm
  */
 function installIe() {
@@ -254,17 +280,31 @@ function installIe() {
     timeout: 120000  // 2 minutes for slow networks
   });
 
-  if (result.success) {
-    ttyLog('  ✓ intent-engine installed successfully!');
-    ttyLog('========================================');
-    ttyLog('');
-    return true;
-  } else {
+  if (!result.success) {
     const errorMsg = (result.stderr || result.stdout || result.error?.message || 'Unknown error').slice(0, 300);
     ttyLog('  ✗ Installation failed: ' + errorMsg);
     ttyLog('========================================');
     return false;
   }
+
+  // WSL with Windows npm: also install linux platform package
+  // Windows npm installs win32-x64 package, but WSL needs linux-x64
+  if (runningInWSL && isWindowsNpm()) {
+    debugLog('WSL detected with Windows npm, installing linux-x64 platform package');
+    ttyLog('  Installing linux platform package for WSL...');
+    const linuxResult = runCommand('npm', ['install', '-g', '@origintask/intent-engine-linux-x64', '--force'], {
+      timeout: 60000
+    });
+    if (!linuxResult.success) {
+      debugLog(`linux-x64 install failed: ${linuxResult.stderr}`);
+      // Non-fatal: the binary might still work
+    }
+  }
+
+  ttyLog('  ✓ intent-engine installed successfully!');
+  ttyLog('========================================');
+  ttyLog('');
+  return true;
 }
 
 // === Main logic ===
