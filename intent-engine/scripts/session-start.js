@@ -126,13 +126,14 @@ function commandExists(cmd) {
 
 /**
  * Verify ie binary works by running --version
- * Windows: .cmd files MUST be executed through shell
+ * Windows/.cmd files MUST be executed through shell
  */
 function verifyIeBinary(iePath) {
   debugLog(`verifyIeBinary: checking ${iePath}`);
   try {
-    // Windows: use shell with combined command string to avoid DEP0190 warning
-    const result = isWin
+    // Use shell for Windows or .cmd files (including WSL with Windows npm)
+    const needsShell = isWin || iePath.endsWith('.cmd');
+    const result = needsShell
       ? spawnSync(`"${iePath}" --version`, {
           encoding: 'utf8',
           timeout: 5000,
@@ -163,7 +164,15 @@ function getNpmGlobalBinDir() {
     const prefix = execCommand('npm config get prefix');
     // Windows: binaries are in prefix root
     // Unix: binaries are in prefix/bin
-    return isWin ? prefix : path.join(prefix, 'bin');
+    // WSL with Windows npm: prefix is Windows path, binaries in prefix root
+    if (isWin) {
+      return prefix;
+    }
+    // Check if this is a Windows path (WSL with Windows npm)
+    if (/^[A-Za-z]:/.test(prefix) || prefix.startsWith('/mnt/')) {
+      return prefix;
+    }
+    return path.join(prefix, 'bin');
   } catch {
     return null;
   }
@@ -192,11 +201,16 @@ function findIeBinary() {
   const npmBinDir = getNpmGlobalBinDir();
   debugLog(`findIeBinary: npm bin dir: ${npmBinDir}`);
   if (npmBinDir) {
-    const iePath = path.join(npmBinDir, isWin ? 'ie.cmd' : 'ie');
-    debugLog(`findIeBinary: checking npm path: ${iePath}`);
-    if (fs.existsSync(iePath) && verifyIeBinary(iePath)) {
-      debugLog(`findIeBinary: found via npm: ${iePath}`);
-      return iePath;
+    // Check for both ie and ie.cmd (WSL with Windows npm may have .cmd)
+    const isWindowsPath = /^[A-Za-z]:/.test(npmBinDir) || npmBinDir.startsWith('/mnt/');
+    const binNames = isWin || isWindowsPath ? ['ie.cmd', 'ie'] : ['ie'];
+    for (const binName of binNames) {
+      const iePath = path.join(npmBinDir, binName);
+      debugLog(`findIeBinary: checking npm path: ${iePath}`);
+      if (fs.existsSync(iePath) && verifyIeBinary(iePath)) {
+        debugLog(`findIeBinary: found via npm: ${iePath}`);
+        return iePath;
+      }
     }
   }
 
@@ -216,17 +230,33 @@ function findIeBinary() {
     }
   }
 
+  // Method 4: Check WSL common paths (Windows npm from WSL)
+  if (runningInWSL) {
+    const wslPaths = [
+      '/mnt/c/Users/' + (process.env.USER || '') + '/AppData/Roaming/npm/ie.cmd',
+      '/mnt/c/Program Files/nodejs/ie.cmd'
+    ];
+    for (const p of wslPaths) {
+      debugLog(`findIeBinary: checking WSL path: ${p}`);
+      if (fs.existsSync(p) && verifyIeBinary(p)) {
+        debugLog(`findIeBinary: found via WSL path: ${p}`);
+        return p;
+      }
+    }
+  }
+
   debugLog('findIeBinary: not found');
   return null;
 }
 
 /**
  * Run a command with proper error handling
- * Windows: requires shell for .cmd files (npm.cmd, ie.cmd, etc.)
+ * Windows/.cmd files require shell execution
  */
 function runCommand(cmd, args, options = {}) {
-  // Windows: combine command and args to avoid DEP0190 warning
-  // Quote the command and each argument for safety
+  // Use shell for Windows or .cmd files (including WSL with Windows npm)
+  const needsShell = isWin || cmd.endsWith('.cmd');
+
   const spawnOptions = {
     encoding: 'utf8',
     timeout: options.timeout || 15000,
@@ -237,7 +267,8 @@ function runCommand(cmd, args, options = {}) {
   };
 
   let result;
-  if (isWin) {
+  if (needsShell) {
+    // Combine command and args to avoid DEP0190 warning
     const quotedArgs = args.map(a => `"${a}"`).join(' ');
     result = spawnSync(`"${cmd}" ${quotedArgs}`, {
       ...spawnOptions,
@@ -336,10 +367,14 @@ if (!iePath) {
   const installed = installIe();
   debugLog(`installIe result: ${installed}`);
   if (installed) {
-    // Wait a moment for filesystem to sync on Windows
-    if (isWin) {
-      try { execSync('timeout /t 1 /nobreak >nul 2>&1', { shell: true }); } catch {}
-    }
+    // Wait a moment for filesystem to sync
+    try {
+      if (isWin) {
+        execSync('timeout /t 1 /nobreak >nul 2>&1', { shell: true });
+      } else {
+        execSync('sleep 1', { shell: true });
+      }
+    } catch {}
     iePath = findIeBinary();
     debugLog(`Post-install findIeBinary result: ${iePath}`);
     if (iePath) {
@@ -381,9 +416,9 @@ Commands:
   ie log decision "why X"          # Decision transparency
   ie search "query"                # Memory retrieval
 
-Lifecycle: todo (rough) → doing (needs spec) → done (children first)
+Lifecycle: todo (rough) -> doing (needs spec) -> done (children first)
 
-Rule: Would be a shame to lose → ie. Use once and discard → TodoWrite.
+Rule: Would be a shame to lose -> ie. Use once and discard -> TodoWrite.
 </system-reminder>
 `);
 }
