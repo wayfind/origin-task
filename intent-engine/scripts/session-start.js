@@ -64,19 +64,23 @@ function closeTty() {
 let sessionId = '';
 try {
   // Only read stdin if it's piped (not interactive TTY)
+  debugLog(`stdin.isTTY: ${process.stdin.isTTY}`);
   if (!process.stdin.isTTY) {
     const input = fs.readFileSync(0, 'utf8').trim();
+    debugLog(`stdin input length: ${input.length}`);
     if (input) {
       const data = JSON.parse(input);
       sessionId = data.session_id || '';
+      debugLog(`Parsed session_id: ${sessionId}`);
     }
   }
-} catch {
-  // Ignore parse errors - stdin may be empty or invalid
+} catch (e) {
+  debugLog(`stdin parse error: ${e.message}`);
 }
 
 // === Set environment variable ===
 
+debugLog(`CLAUDE_ENV_FILE: ${process.env.CLAUDE_ENV_FILE}`);
 if (process.env.CLAUDE_ENV_FILE && sessionId) {
   if (/^[a-zA-Z0-9_-]+$/.test(sessionId)) {
     try {
@@ -84,7 +88,10 @@ if (process.env.CLAUDE_ENV_FILE && sessionId) {
         process.env.CLAUDE_ENV_FILE,
         `export IE_SESSION_ID="${sessionId}"\n`
       );
-    } catch {}
+      debugLog(`Wrote session_id to env file`);
+    } catch (e) {
+      debugLog(`Failed to write env file: ${e.message}`);
+    }
   }
 }
 
@@ -448,6 +455,7 @@ Habits:
   3. Decisions: ie log decision "..." immediately
   4. Blocked: ie log blocker "..."
   5. Amnesia test: "Is this enough to continue if I forget?"
+${sessionId ? `\nCurrent Session ID: ${sessionId}` : ''}
 </system-reminder>`);
 
 // === Cleanup ===
