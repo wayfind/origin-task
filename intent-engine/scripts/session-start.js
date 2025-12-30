@@ -11,45 +11,34 @@ const path = require('path');
 const isWin = process.platform === 'win32';
 
 // === TTY output for user-visible progress ===
-// Write directly to terminal, bypassing stdout capture by Claude Code
-
-let ttyFd = null;
-try {
-  ttyFd = fs.openSync(isWin ? 'CON' : '/dev/tty', 'w');
-} catch {
-  // TTY not available (e.g., non-interactive session)
-}
+// Use stderr for user-visible messages (not captured by Claude Code for SessionStart)
 
 /**
- * Output message directly to user's terminal (not captured by Claude Code)
+ * Output message directly to user's terminal via stderr
+ * Claude Code ignores stderr for SessionStart hooks, but terminal still shows it
  */
 function ttyLog(message) {
-  if (ttyFd !== null) {
-    try {
-      fs.writeSync(ttyFd, message + '\n');
-    } catch {}
-  }
+  process.stderr.write(message + '\n');
 }
 
 /**
- * Close TTY file descriptor
+ * Close TTY - no-op for stderr approach
  */
 function closeTty() {
-  if (ttyFd !== null) {
-    try {
-      fs.closeSync(ttyFd);
-    } catch {}
-  }
+  // No cleanup needed for stderr
 }
 
 // === Parse stdin (session_id) ===
 
 let sessionId = '';
 try {
-  const input = fs.readFileSync(0, 'utf8').trim();
-  if (input) {
-    const data = JSON.parse(input);
-    sessionId = data.session_id || '';
+  // Only read stdin if it's piped (not interactive TTY)
+  if (!process.stdin.isTTY) {
+    const input = fs.readFileSync(0, 'utf8').trim();
+    if (input) {
+      const data = JSON.parse(input);
+      sessionId = data.session_id || '';
+    }
   }
 } catch {
   // Ignore parse errors - stdin may be empty or invalid
