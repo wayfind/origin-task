@@ -6,6 +6,10 @@ const { execSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
+// === Platform detection ===
+
+const isWin = process.platform === 'win32';
+
 // === Parse stdin (session_id) ===
 
 let sessionId = '';
@@ -16,7 +20,7 @@ try {
     sessionId = data.session_id || '';
   }
 } catch {
-  // Ignore parse errors
+  // Ignore parse errors - stdin may be empty or invalid
 }
 
 // === Set environment variable ===
@@ -36,49 +40,72 @@ process.env.IE_SESSION_ID = sessionId;
 
 // === Utility functions ===
 
-const isWin = process.platform === 'win32';
+/**
+ * Execute a command and return trimmed output
+ * Handles Windows shell requirements
+ */
+function execCommand(cmd) {
+  return execSync(cmd, {
+    encoding: 'utf8',
+    stdio: ['pipe', 'pipe', 'ignore'],
+    shell: true,  // Always use shell for cross-platform compatibility
+    timeout: 10000
+  }).trim().replace(/\r\n/g, '\n');  // Normalize Windows line endings
+}
 
+/**
+ * Check if a command exists in PATH
+ */
 function commandExists(cmd) {
   try {
-    execSync(isWin ? `where ${cmd}` : `command -v ${cmd}`, { stdio: 'ignore' });
+    execCommand(isWin ? `where ${cmd}` : `command -v ${cmd}`);
     return true;
   } catch {
     return false;
   }
 }
 
+/**
+ * Verify ie binary works by running --version
+ * Windows: .cmd files can be executed directly without shell
+ */
 function verifyIeBinary(iePath) {
   try {
     const result = spawnSync(iePath, ['--version'], {
       encoding: 'utf8',
       timeout: 5000,
       stdio: ['ignore', 'pipe', 'pipe'],
-      shell: isWin
+      windowsHide: true
     });
-    return result.status === 0;
+    // Check both status and error
+    return result.status === 0 && !result.error;
   } catch {
     return false;
   }
 }
 
+/**
+ * Get npm global bin directory
+ */
 function getNpmGlobalBinDir() {
   try {
-    const prefix = execSync('npm config get prefix', {
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'ignore']
-    }).trim();
+    const prefix = execCommand('npm config get prefix');
+    // Windows: binaries are in prefix root
+    // Unix: binaries are in prefix/bin
     return isWin ? prefix : path.join(prefix, 'bin');
   } catch {
     return null;
   }
 }
 
+/**
+ * Find ie binary in PATH or npm global directory
+ */
 function findIeBinary() {
-  // Method 1: Check if ie is in PATH and works
+  // Method 1: Check if ie is in PATH
   try {
-    const checkCmd = isWin ? 'where ie' : 'command -v ie';
-    const result = execSync(checkCmd, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'ignore'] });
-    const iePath = result.trim().split('\n')[0];
+    const output = execCommand(isWin ? 'where ie' : 'command -v ie');
+    const iePath = output.split('\n')[0].trim();
     if (iePath && fs.existsSync(iePath) && verifyIeBinary(iePath)) {
       return iePath;
     }
@@ -93,9 +120,47 @@ function findIeBinary() {
     }
   }
 
+  // Method 3: Check common Windows npm locations
+  if (isWin) {
+    const commonPaths = [
+      path.join(process.env.APPDATA || '', 'npm', 'ie.cmd'),
+      path.join(process.env.LOCALAPPDATA || '', 'npm', 'ie.cmd'),
+      path.join(process.env.ProgramFiles || '', 'nodejs', 'ie.cmd')
+    ];
+    for (const p of commonPaths) {
+      if (p && fs.existsSync(p) && verifyIeBinary(p)) {
+        return p;
+      }
+    }
+  }
+
   return null;
 }
 
+/**
+ * Run a command with proper error handling
+ */
+function runCommand(iePath, args, options = {}) {
+  const result = spawnSync(iePath, args, {
+    encoding: 'utf8',
+    timeout: options.timeout || 15000,
+    stdio: options.stdio || ['ignore', 'pipe', 'pipe'],
+    cwd: options.cwd,
+    env: options.env || process.env,
+    windowsHide: true
+  });
+
+  return {
+    success: result.status === 0 && !result.error,
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+    error: result.error
+  };
+}
+
+/**
+ * Install intent-engine via npm
+ */
 function installIe() {
   if (!commandExists('npm')) {
     console.log('npm not found. Cannot auto-install intent-engine.');
@@ -109,28 +174,20 @@ function installIe() {
   console.log('========================================');
   console.log('');
 
-  try {
-    const result = spawnSync('npm', ['install', '-g', '@origintask/intent-engine'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: 60000,
-      shell: isWin
-    });
+  const result = runCommand('npm', ['install', '-g', '@origintask/intent-engine'], {
+    timeout: 120000  // 2 minutes for slow networks
+  });
 
-    if (result.status === 0) {
-      console.log('');
-      console.log('========================================');
-      console.log('  intent-engine installed successfully!');
-      console.log('========================================');
-      console.log('');
-      return true;
-    } else {
-      const errorMsg = (result.stderr || result.stdout || 'Unknown error').slice(0, 300);
-      console.log('Installation failed:', errorMsg);
-      return false;
-    }
-  } catch (e) {
-    console.log('Installation error:', e.message);
+  if (result.success) {
+    console.log('');
+    console.log('========================================');
+    console.log('  intent-engine installed successfully!');
+    console.log('========================================');
+    console.log('');
+    return true;
+  } else {
+    const errorMsg = (result.stderr || result.stdout || result.error?.message || 'Unknown error').slice(0, 300);
+    console.log('Installation failed:', errorMsg);
     return false;
   }
 }
@@ -143,6 +200,10 @@ let justInstalled = false;
 if (!iePath) {
   const installed = installIe();
   if (installed) {
+    // Wait a moment for filesystem to sync on Windows
+    if (isWin) {
+      try { execSync('timeout /t 1 /nobreak >nul 2>&1', { shell: true }); } catch {}
+    }
     iePath = findIeBinary();
     if (iePath) {
       justInstalled = true;
@@ -195,35 +256,28 @@ const projectDir = process.env.CLAUDE_PROJECT_DIR || process.cwd();
 const ieDir = path.join(projectDir, '.intent-engine');
 
 if (fs.existsSync(projectDir) && !fs.existsSync(ieDir)) {
-  try {
-    spawnSync(iePath, ['init'], {
-      cwd: projectDir,
-      stdio: 'ignore',
-      timeout: 10000,
-      shell: isWin
-    });
-  } catch {}
+  runCommand(iePath, ['init'], {
+    cwd: projectDir,
+    stdio: 'ignore',
+    timeout: 10000
+  });
 }
 
 // === Run ie status ===
 
-try {
-  const result = spawnSync(iePath, ['status'], {
-    cwd: projectDir,
-    encoding: 'utf8',
-    timeout: 15000,
-    env: { ...process.env, IE_SESSION_ID: sessionId },
-    shell: isWin
-  });
+const statusResult = runCommand(iePath, ['status'], {
+  cwd: projectDir,
+  env: { ...process.env, IE_SESSION_ID: sessionId }
+});
 
-  if (result.stdout) {
-    console.log(result.stdout);
-  }
-  if (result.stderr) {
-    console.error(result.stderr);
-  }
-} catch (e) {
-  console.log('Failed to run ie status:', e.message);
+if (statusResult.stdout) {
+  console.log(statusResult.stdout);
+}
+if (statusResult.stderr) {
+  console.error(statusResult.stderr);
+}
+if (statusResult.error) {
+  console.log('Failed to run ie status:', statusResult.error.message);
 }
 
 // === Output system reminder ===
