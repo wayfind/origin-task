@@ -406,10 +406,14 @@ debugLog(`ie status stderr length: ${statusResult.stderr?.length}`);
 
 if (statusResult.stdout) {
   // Filter out emoji and special characters that might cause JSON parsing issues
+  // Use broader regex to catch all emoji including variation selectors
   const cleanOutput = statusResult.stdout
-    .replace(/[\u2700-\u27BF\u2600-\u26FF\uFE00-\uFE0F]/g, '')  // Emoji
-    .replace(/\u26A0/g, '[!]')  // Warning sign
-    .replace(/\u2192/g, '->')   // Arrow
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')      // Supplementary emoji
+    .replace(/[\u2600-\u27BF]/g, '')              // Misc symbols
+    .replace(/[\uFE00-\uFE0F]/g, '')              // Variation selectors
+    .replace(/\u26A0\uFE0F?/g, '[!]')             // Warning sign with optional VS
+    .replace(/[\u2190-\u21FF]/g, '->')            // Arrows
+    .replace(/\s+/g, ' ')                         // Normalize whitespace
     .trim();
   if (cleanOutput) {
     console.log(cleanOutput);
