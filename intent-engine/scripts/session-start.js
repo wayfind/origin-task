@@ -243,21 +243,49 @@ function findIeBinary() {
 
   // Method 4: Check WSL common paths (Windows npm from WSL)
   if (runningInWSL) {
-    // Try to get Windows username from various sources
-    // In WSL, USER is Linux username, need Windows username for paths
-    const winUser = process.env.WSLENV_USER ||  // Custom env var
-                    process.env.LOGNAME ||       // Sometimes set to Windows user
-                    process.env.USER ||          // Fallback to Linux user
-                    '';
+    // Try to get Windows username by enumerating /mnt/c/Users/
+    // This is more reliable than environment variables
+    let winUsers = [];
+    try {
+      const usersDir = '/mnt/c/Users';
+      if (fs.existsSync(usersDir)) {
+        winUsers = fs.readdirSync(usersDir).filter(name => {
+          // Skip system directories
+          if (['Public', 'Default', 'Default User', 'All Users'].includes(name)) return false;
+          const userPath = path.join(usersDir, name, 'AppData/Roaming/npm');
+          return fs.existsSync(userPath);
+        });
+      }
+    } catch (e) {
+      debugLog(`findIeBinary: failed to enumerate Windows users: ${e.message}`);
+    }
+
     const wslPaths = [];
-    if (winUser) {
-      wslPaths.push('/mnt/c/Users/' + winUser + '/AppData/Roaming/npm/ie.cmd');
+    for (const user of winUsers) {
+      wslPaths.push(`/mnt/c/Users/${user}/AppData/Roaming/npm/ie.cmd`);
     }
     wslPaths.push('/mnt/c/Program Files/nodejs/ie.cmd');
+
     for (const p of wslPaths) {
       debugLog(`findIeBinary: checking WSL path: ${p}`);
       if (fs.existsSync(p) && verifyIeBinary(p)) {
         debugLog(`findIeBinary: found via WSL path: ${p}`);
+        return p;
+      }
+    }
+  }
+
+  // Method 5: Check macOS Homebrew paths
+  if (isMac) {
+    const brewPaths = [
+      '/opt/homebrew/bin/ie',      // Apple Silicon
+      '/usr/local/bin/ie',          // Intel Mac
+      path.join(os.homedir(), '.local/bin/ie')  // User local
+    ];
+    for (const p of brewPaths) {
+      debugLog(`findIeBinary: checking macOS path: ${p}`);
+      if (fs.existsSync(p) && verifyIeBinary(p)) {
+        debugLog(`findIeBinary: found via macOS path: ${p}`);
         return p;
       }
     }
