@@ -219,14 +219,20 @@ function findIeBinary() {
 
   // Method 3: Check common Windows npm locations
   if (isWin) {
-    const commonPaths = [
-      path.join(process.env.APPDATA || '', 'npm', 'ie.cmd'),
-      path.join(process.env.LOCALAPPDATA || '', 'npm', 'ie.cmd'),
-      path.join(process.env.ProgramFiles || '', 'nodejs', 'ie.cmd')
-    ];
+    const commonPaths = [];
+    // Only add paths if env vars exist and are non-empty
+    if (process.env.APPDATA) {
+      commonPaths.push(path.join(process.env.APPDATA, 'npm', 'ie.cmd'));
+    }
+    if (process.env.LOCALAPPDATA) {
+      commonPaths.push(path.join(process.env.LOCALAPPDATA, 'npm', 'ie.cmd'));
+    }
+    if (process.env.ProgramFiles) {
+      commonPaths.push(path.join(process.env.ProgramFiles, 'nodejs', 'ie.cmd'));
+    }
     for (const p of commonPaths) {
       debugLog(`findIeBinary: checking common path: ${p}`);
-      if (p && fs.existsSync(p) && verifyIeBinary(p)) {
+      if (fs.existsSync(p) && verifyIeBinary(p)) {
         debugLog(`findIeBinary: found via common path: ${p}`);
         return p;
       }
@@ -235,10 +241,17 @@ function findIeBinary() {
 
   // Method 4: Check WSL common paths (Windows npm from WSL)
   if (runningInWSL) {
-    const wslPaths = [
-      '/mnt/c/Users/' + (process.env.USER || '') + '/AppData/Roaming/npm/ie.cmd',
-      '/mnt/c/Program Files/nodejs/ie.cmd'
-    ];
+    // Try to get Windows username from various sources
+    // In WSL, USER is Linux username, need Windows username for paths
+    const winUser = process.env.WSLENV_USER ||  // Custom env var
+                    process.env.LOGNAME ||       // Sometimes set to Windows user
+                    process.env.USER ||          // Fallback to Linux user
+                    '';
+    const wslPaths = [];
+    if (winUser) {
+      wslPaths.push('/mnt/c/Users/' + winUser + '/AppData/Roaming/npm/ie.cmd');
+    }
+    wslPaths.push('/mnt/c/Program Files/nodejs/ie.cmd');
     for (const p of wslPaths) {
       debugLog(`findIeBinary: checking WSL path: ${p}`);
       if (fs.existsSync(p) && verifyIeBinary(p)) {
@@ -272,7 +285,8 @@ function runCommand(cmd, args, options = {}) {
   let result;
   if (needsShell) {
     // Combine command and args to avoid DEP0190 warning
-    const quotedArgs = args.map(a => `"${a}"`).join(' ');
+    // Escape quotes in args to prevent shell injection
+    const quotedArgs = args.map(a => `"${a.replace(/"/g, '\\"')}"`).join(' ');
     result = spawnSync(`"${cmd}" ${quotedArgs}`, {
       ...spawnOptions,
       shell: true
