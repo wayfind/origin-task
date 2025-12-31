@@ -10,11 +10,13 @@ const os = require('os');
 // === Platform detection ===
 
 const isWin = process.platform === 'win32';
+const isMac = process.platform === 'darwin';
+const isLinux = process.platform === 'linux';
 
 // Detect WSL (Windows Subsystem for Linux)
 // WSL reports platform as 'linux' but may use Windows npm
 function isWSL() {
-  if (process.platform !== 'linux') return false;
+  if (!isLinux) return false;
   try {
     const release = fs.readFileSync('/proc/version', 'utf8').toLowerCase();
     return release.includes('microsoft') || release.includes('wsl');
@@ -39,7 +41,7 @@ function debugLog(message) {
 }
 
 debugLog('=== Session start hook begins ===');
-debugLog(`Platform: ${process.platform}, isWin: ${isWin}, runningInWSL: ${runningInWSL}`);
+debugLog(`Platform: ${process.platform}, isWin: ${isWin}, isMac: ${isMac}, isLinux: ${isLinux}, runningInWSL: ${runningInWSL}`);
 
 // === TTY output for user-visible progress ===
 // Use stderr for user-visible messages (not captured by Claude Code for SessionStart)
@@ -384,14 +386,12 @@ if (!iePath) {
   const installed = installIe();
   debugLog(`installIe result: ${installed}`);
   if (installed) {
-    // Wait a moment for filesystem to sync
-    try {
-      if (isWin) {
-        execSync('timeout /t 1 /nobreak >nul 2>&1', { shell: true });
-      } else {
-        execSync('sleep 1', { shell: true });
-      }
-    } catch {}
+    // Wait a moment for filesystem to sync (cross-platform Node.js sleep)
+    const waitMs = 1000;
+    const waitUntil = Date.now() + waitMs;
+    while (Date.now() < waitUntil) {
+      // Busy wait - acceptable for short duration
+    }
     iePath = findIeBinary();
     debugLog(`Post-install findIeBinary result: ${iePath}`);
     if (iePath) {
@@ -403,41 +403,39 @@ if (!iePath) {
 }
 
 if (!iePath) {
-  console.log(`<system-reminder>
-intent-engine (ie) not available.
+  // Output JSON format for Claude Code SessionStart hook
+  const notAvailableContext = `intent-engine (ie) not available.
 
 Auto-install ${commandExists('npm') ? 'failed' : 'skipped (npm not found)'}.
 
 Please install manually:
   npm install -g @origintask/intent-engine
   cargo install intent-engine
-  brew install wayfind/tap/intent-engine
-</system-reminder>`);
+  brew install wayfind/tap/intent-engine`;
+
+  const hookOutput = {
+    hookSpecificOutput: {
+      hookEventName: "SessionStart",
+      additionalContext: notAvailableContext
+    }
+  };
+  console.log(JSON.stringify(hookOutput));
   closeTty();
   process.exit(0);
 }
 
+// Store justInstalled message to append to final output
+let justInstalledContext = '';
 if (justInstalled) {
-  console.log(`
-<system-reminder>
-# ie installed - Your External Brain for Intent Continuity
+  justInstalledContext = `
+# ie just installed - Your External Brain for Intent Continuity
 
 ie is not a task manager. It's what makes you reliable across sessions.
 
 Core Insight: You are stateless, but user tasks span sessions.
 Through ie, you inherit your "past life's" intent.
 
-Commands:
-  ie status                        # Amnesia recovery (ALWAYS first)
-  echo '{"tasks":[...]}' | ie plan # Decomposition persistence
-  ie log decision "why X"          # Decision transparency
-  ie search "query"                # Memory retrieval
-
-Lifecycle: todo (rough) -> doing (needs spec) -> done (children first)
-
-Rule: Would be a shame to lose -> ie. Use once and discard -> TodoWrite.
-</system-reminder>
-`);
+`;
 }
 
 // === Initialize project if needed ===
@@ -485,7 +483,7 @@ if (statusResult.stdout) {
   }
 }
 
-const additionalContext = `# ie - Intent Continuity (replaces TodoWrite for persistent work)
+const additionalContext = `${justInstalledContext}# ie - Intent Continuity (replaces TodoWrite for persistent work)
 
 ${ieStatusText}You are stateless. User tasks span sessions. ie bridges this gap.
 
