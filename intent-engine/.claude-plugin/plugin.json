@@ -5,7 +5,7 @@
   "author": {
     "name": "wayfind"
   },
-  "repository": "https://github.com/anthropics/claude-code-plugins",
+  "repository": "https://github.com/wayfind/origin-task.git",
   "license": "MIT OR Apache-2.0",
   "keywords": [
     "task", "tasks", "plan", "planning", "todo", "progress", "tracking",
