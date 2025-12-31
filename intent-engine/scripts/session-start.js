@@ -449,35 +449,31 @@ const statusResult = runCommand(iePath, ['status'], {
 debugLog(`ie status stdout length: ${statusResult.stdout?.length}`);
 debugLog(`ie status stderr length: ${statusResult.stderr?.length}`);
 
-if (statusResult.stdout) {
-  // Filter out emoji and special characters that might cause JSON parsing issues
-  // Use broader regex to catch all emoji including variation selectors
-  const cleanOutput = statusResult.stdout
-    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')      // Supplementary emoji
-    .replace(/[\u2600-\u27BF]/g, '')              // Misc symbols
-    .replace(/[\uFE00-\uFE0F]/g, '')              // Variation selectors
-    .replace(/\u26A0\uFE0F?/g, '[!]')             // Warning sign with optional VS
-    .replace(/[\u2190-\u21FF]/g, '->')            // Arrows
-    .replace(/\s+/g, ' ')                         // Normalize whitespace
-    .trim();
-  if (cleanOutput) {
-    console.log(cleanOutput);
-  }
-}
-if (statusResult.stderr) {
-  console.error(statusResult.stderr);
-}
 if (statusResult.error) {
   ttyLog('[intent-engine] Failed to run ie status: ' + statusResult.error.message);
 }
 
-// === Output system reminder ===
+// === Output JSON for Claude Code SessionStart hook ===
 
-console.log(`
-<system-reminder>
-# ie - Intent Continuity (replaces TodoWrite for persistent work)
+// Build the ie status output
+let ieStatusText = '';
+if (statusResult.stdout) {
+  const cleanOutput = statusResult.stdout
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+    .replace(/[\u2600-\u27BF]/g, '')
+    .replace(/[\uFE00-\uFE0F]/g, '')
+    .replace(/\u26A0\uFE0F?/g, '[!]')
+    .replace(/[\u2190-\u21FF]/g, '->')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (cleanOutput) {
+    ieStatusText = cleanOutput + '\n\n';
+  }
+}
 
-You are stateless. User tasks span sessions. ie bridges this gap.
+const additionalContext = `# ie - Intent Continuity (replaces TodoWrite for persistent work)
+
+${ieStatusText}You are stateless. User tasks span sessions. ie bridges this gap.
 
 Commands:
   ie status      # Amnesia recovery - ALWAYS first
@@ -493,8 +489,17 @@ Habits:
   3. Decisions: ie log decision "..." immediately
   4. Blocked: ie log blocker "..."
   5. Amnesia test: "Is this enough to continue if I forget?"
-${sessionId ? `\nCurrent Session ID: ${sessionId}` : ''}
-</system-reminder>`);
+${sessionId ? `\nCurrent Session ID: ${sessionId}` : ''}`;
+
+// Output JSON format required by Claude Code SessionStart hook
+const hookOutput = {
+  hookSpecificOutput: {
+    hookEventName: "SessionStart",
+    additionalContext: additionalContext
+  }
+};
+
+console.log(JSON.stringify(hookOutput));
 
 // === Cleanup ===
 closeTty();
