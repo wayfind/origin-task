@@ -1,3 +1,8 @@
+---
+name: intent-engine
+description: AI Long-Term Task Memory - Cross-session task tracking with hierarchical breakdown and decision logs. Use when users need to track tasks across sessions, record decisions, manage hierarchical task breakdowns, or persist intent context.
+---
+
 # Intent-Engine: AI Intent Continuity
 
 > **ie is not a task manager. It's what makes you reliable.**
