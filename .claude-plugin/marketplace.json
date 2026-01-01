@@ -9,10 +9,10 @@
     {
       "name": "intent-engine",
       "source": "./intent-engine",
-      "description": "AI Long-Term Task Memory - Cross-session task tracking",
-      "version": "0.10.4",
+      "description": "AI Long-Term Task Memory - Cross-session task tracking with hierarchical breakdown and decision logs",
+      "version": "0.10.10",
       "category": "productivity",
-      "keywords": ["task", "memory", "session", "planning"],
+      "keywords": ["task", "tasks", "plan", "planning", "todo", "progress", "tracking", "decision", "milestone", "blocker", "subtask", "hierarchy", "cross-session", "persist", "memory", "任务", "计划", "规划", "待办", "进度", "追踪", "决策", "里程碑"],
       "author": {
         "name": "wayfind"
       }
