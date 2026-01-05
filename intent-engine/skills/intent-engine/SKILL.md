@@ -73,9 +73,9 @@ Because the user trusts you will finish.
 ## Prerequisites
 
 ```bash
-npm install -g @anthropic/intent-engine
+npm install -g @origintask/intent-engine
 # or: cargo install intent-engine
-# or: brew install anthropic/tap/intent-engine
+# or: brew install origintask/tap/intent-engine
 ```
 
 ---
