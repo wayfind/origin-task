@@ -75,7 +75,7 @@ Because the user trusts you will finish.
 ```bash
 npm install -g @origintask/intent-engine
 # or: cargo install intent-engine
-# or: brew install origintask/tap/intent-engine
+# or: brew install wayfind/tap/intent-engine
 ```
 
 ---

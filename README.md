@@ -6,10 +6,10 @@ Claude Code Plugin Marketplace for AI Long-Term Task Memory.
 
 ```bash
 # 1. Add marketplace
-claude plugin marketplace add wayfind/origin-task
+/plugin marketplace add wayfind/origin-task
 
 # 2. Install plugin
-claude plugin install intent-engine
+/plugin install intent-engine
 ```
 
 ## Available Plugins
@@ -18,10 +18,27 @@ claude plugin install intent-engine
 
 Cross-session task tracking for Claude Code. Use `ie plan` instead of TodoWrite for:
 
-- **Persistent memory** - Tasks survive across sessions
-- **Hierarchical breakdown** - Parent tasks with subtasks
-- **Decision tracking** - Record why you made choices
-- **Smart search** - Find tasks and events with FTS5
+- **Persistent memory** — Tasks survive across sessions
+- **Hierarchical breakdown** — Parent tasks with subtasks
+- **Decision tracking** — Record why you made choices
+- **Smart search** — Find tasks and events with FTS5
+- **Visual dashboard** — Web UI for task management
+
+## Dashboard
+
+After installation, launch the visual dashboard:
+
+```bash
+ie dashboard
+```
+
+![IE Dashboard](https://raw.githubusercontent.com/wayfind/intent-engine/main/docs/iedashboard.png)
+
+**Features:**
+- Task Navigator with hierarchical tree view
+- Full spec rendering (markdown, mermaid diagrams)
+- Decision timeline with chronological logs
+- Multi-project support via tabs
 
 ## How It Works
 
@@ -46,6 +63,9 @@ brew install wayfind/tap/intent-engine
 ## Usage
 
 ```bash
+# View dashboard
+ie dashboard
+
 # Create task
 echo '{"tasks":[{"name":"My Task","status":"doing"}]}' | ie plan
 
@@ -72,13 +92,13 @@ ie search "todo doing"
 ## Uninstall
 
 ```bash
-claude plugin uninstall intent-engine
-claude plugin marketplace remove origin-task
+/plugin uninstall intent-engine
+/plugin marketplace remove origin-task
 ```
 
 ## Related
 
-- [intent-engine](https://github.com/wayfind/intent-engine) - Core CLI tool
+- [intent-engine](https://github.com/wayfind/intent-engine) — Core CLI tool
 - [npm package](https://www.npmjs.com/package/@origintask/intent-engine)
 
 ## License
