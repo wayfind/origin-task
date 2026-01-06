@@ -265,6 +265,19 @@ ie search "decision JWT"  # Find decisions
 
 ---
 
+## Anti-Patterns to Avoid
+
+| Don't | Do Instead |
+|-------|------------|
+| Decide without checking history | `ie search` first |
+| Hide errors and retry silently | `ie log blocker "error"` |
+| Start task without spec | Write Goal + Approach first |
+| Use TodoWrite for persistent work | Use `ie plan` |
+| Multiple `ie plan` calls for hierarchy | Single call with nested `children` |
+| Forget what you were doing | `ie status` at session start |
+
+---
+
 ## Amnesia Test
 
 > Before recording, ask: "If I lost memory now, is this enough to continue?"
