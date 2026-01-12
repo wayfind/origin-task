@@ -1,0 +1,5 @@
+# OpenAI Deep Research Skill Dependencies
+# ========================================
+
+# Browser automation
+playwright>=1.40.0

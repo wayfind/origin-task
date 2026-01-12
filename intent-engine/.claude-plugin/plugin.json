@@ -13,5 +13,5 @@
     "cross-session", "persist", "memory",
     "任务", "计划", "规划", "待办", "进度", "追踪", "决策", "里程碑"
   ],
-  "skills": ["./skills/intent-engine"]
+  "skills": ["./skills/intent-engine", "./skills/openai-deep-research"]
 }
