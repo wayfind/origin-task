@@ -12,45 +12,113 @@ description: |
 
 ---
 
-## ⛔ 研究工具选择规则（必读）
+## 📋 Research Directive 执行协议（必读）
 
-> **STOP! 这是内容填充阶段，需要深度研究。请务必阅读此规则。**
+> **enrich 阶段的核心任务：解析 research_tasks，执行研究，填充结果。**
 
-### 🚨 核心规则
+### Step 1: 解析 skeleton.yaml 中的研究任务
+
+```yaml
+# skeleton.yaml 示例
+research_tasks:
+  - id: "r01"
+    query: "Tesla TSLA stock performance 2025"
+    skill: "deep-research"
+    required: true
+    output_format: |
+      - 年初价格: $XXX
+      - 年末价格: $XXX
+      - 涨跌幅: XX%
+```
+
+### Step 2: 显式输出每个研究任务
+
+**必须在执行前输出任务详情：**
 
 ```
-当 skeleton.yaml 包含 research_needs 时：
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 RESEARCH TASK [r01]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Skill: deep-research
+Required: true
 
-❌ 绝对禁止: WebSearch → 结果太浅，不足以支撑 PPT
-❌ 绝对禁止: 凭记忆编造数据 → 可能过时或错误
-✅ 必须使用: openai-deep-research → 深度、可靠、有引用
+Query:
+  Tesla TSLA stock performance 2025
+
+Expected Format:
+  - 年初价格: $XXX
+  - 年末价格: $XXX
+  - 涨跌幅: XX%
+
+Status: ⏳ Executing...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 调用 deep-research 的方式
+### Step 3: 调用 deep-research skill
 
-```bash
-# 直接调用研究脚本
-python scripts/research/deep_research.py \
-    --query "Tesla stock price forecast 2026" \
-    --output ./research/tesla_forecast.json \
-    --mode browser
+```python
+# 使用 Task 工具调用研究
+Task(
+    subagent_type="general-purpose",
+    prompt=f"""
+    执行研究任务 [{task_id}]:
 
-# 或通过 enrich.py 自动调用
-python scripts/enrich.py skeleton.yaml \
-    --research-mode browser \
-    -o slides/
+    使用 openai-deep-research skill 研究：
+    {query}
+
+    输出格式：
+    {output_format}
+
+    要求：
+    1. 必须有数据来源引用
+    2. 数据时效性 < 6个月
+    3. 具体数字，不要模糊表述
+    """,
+    description=f"Research: {task_id}"
+)
+```
+
+### Step 4: 填充到 slide-md
+
+使用 `<!-- @RESEARCH: id -->` 标记：
+
+```markdown
+# 2025年股价回顾
+
+<!-- @RESEARCH: r01 -->
+- 年初价格: $248.42
+- 年末价格: $445.03
+- 涨跌幅: +79.1%
+
+*来源: Yahoo Finance, 2025-12*
+<!-- @/RESEARCH -->
+```
+
+### 🚨 强制规则
+
+```
+❌ 禁止: 看到 research_tasks 却不执行
+❌ 禁止: 不显式输出任务详情就执行
+❌ 禁止: 用 WebSearch 代替 deep-research（当可用时）
+❌ 禁止: 填充没有来源的数据
+❌ 禁止: 使用超过 6 个月的旧数据
+
+✅ 必须: 逐个处理每个 research_task
+✅ 必须: 显式输出 "🔍 RESEARCH TASK [id]"
+✅ 必须: 调用 Task 工具执行研究
+✅ 必须: 在结果中包含来源引用
 ```
 
 ### 研究质量检查清单
 
-生成内容前，确认研究结果包含：
+填充内容前，确认：
 
-- [ ] **具体数据**: 有数字、百分比、金额
+- [ ] **具体数据**: 有数字、百分比、金额（不是 "约" "大概"）
 - [ ] **时效性**: 数据来自最近 6 个月
-- [ ] **来源引用**: 每个关键数据有出处
-- [ ] **多角度**: 不只一个信息源
+- [ ] **来源引用**: 每个关键数据标注出处
+- [ ] **格式匹配**: 符合 output_format 要求
 
-**如果研究结果不满足以上条件，重新调用 deep-research！**
+**不满足 → 重新执行研究！**
 
 ---
 

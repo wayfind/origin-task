@@ -97,52 +97,167 @@ auth:
 
 ---
 
-## ⛔ 研究工具选择规则（必读）
+## 📋 Research Directive 语法（必读）
 
-> **STOP! 在进行任何数据研究之前，必须阅读此规则。**
+> **这是 PPT 生成的核心机制：显式声明研究任务，强制执行获取结果。**
+
+### 语法定义
+
+#### 1. skeleton.yaml 中声明研究任务
+
+```yaml
+# 在 skeleton.yaml 顶层或章节内声明
+research_tasks:
+  - id: "r01"                    # 唯一标识符
+    query: |                      # 研究提示词（详细描述）
+      Tesla TSLA stock performance in 2025:
+      - Opening and closing prices
+      - Year-over-year change percentage
+      - Major events affecting stock price
+      - Analyst ratings summary
+    skill: "deep-research"        # 使用的 skill
+    required: true                # true=必须执行, false=可选
+    output_format: |              # 期望的输出格式
+      ## 2025年股价表现
+      - 年初价格: $XXX
+      - 年末价格: $XXX
+      - 涨跌幅: +/-XX%
+      ### 关键事件
+      1. [事件1]
+      2. [事件2]
+```
+
+#### 2. slide-md 中标记填充位置
+
+```markdown
+---
+slide:
+  id: "02-02"
+  layout: two-column
+---
+
+# 2025年股价回顾
+
+::: left
+<!-- @RESEARCH: r01 -->
+此区域将由研究结果 r01 填充
+<!-- @/RESEARCH -->
+:::
+
+::: right
+<!-- @RESEARCH: r02 -->
+此区域将由研究结果 r02 填充
+<!-- @/RESEARCH -->
+:::
+```
+
+### ⚠️ AI 执行协议（强制）
+
+**当看到 `research_tasks` 或 `<!-- @RESEARCH: -->` 标记时，必须执行以下步骤：**
+
+#### Step 1: 显式输出研究任务
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 RESEARCH TASK [r01]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Skill: deep-research
+Query:
+  Tesla TSLA stock performance in 2025:
+  - Opening and closing prices
+  - Year-over-year change percentage
+  ...
+
+Expected Output Format:
+  ## 2025年股价表现
+  - 年初价格: $XXX
+  ...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+#### Step 2: 调用 Skill 执行研究
+
+```python
+# 必须使用 Task 工具调用 deep-research
+Task(
+    subagent_type="general-purpose",
+    prompt="""
+    执行研究任务 [r01]:
+
+    使用 openai-deep-research skill 研究以下内容：
+    {query}
+
+    输出格式要求：
+    {output_format}
+
+    要求：
+    1. 数据必须有来源引用
+    2. 数据时效性：最近6个月
+    3. 包含具体数字，不要模糊表述
+    """,
+    description="Research: r01"
+)
+```
+
+#### Step 3: 填充结果到 slide-md
+
+```markdown
+<!-- @RESEARCH: r01 -->
+## 2025年股价表现
+- 年初价格: $248.42
+- 年末价格: $445.03
+- 涨跌幅: +79.1%
+
+### 关键事件
+1. Q1: FSD V12 发布，股价上涨 15%
+2. Q3: Robotaxi 发布会，股价创新高
+3. Q4: 马斯克政治参与引发波动
+
+*来源: Yahoo Finance, Reuters*
+<!-- @/RESEARCH -->
+```
+
+### 研究任务类型
+
+| 类型 | 适用场景 | 示例 query |
+|------|----------|-----------|
+| `market_data` | 股价、财务数据 | "TSLA stock price 2025" |
+| `news_events` | 新闻事件分析 | "Tesla major news 2025" |
+| `case_study` | 案例研究 | "AI manufacturing cases China 2025" |
+| `statistics` | 统计数据 | "Global EV market share 2025" |
+| `comparison` | 对比分析 | "Tesla vs BYD sales comparison" |
+| `forecast` | 预测分析 | "Tesla stock price forecast 2026" |
 
 ### 工具优先级
 
-| 优先级 | 工具 | 何时使用 | 能力 |
-|--------|------|----------|------|
-| 🥇 **1st** | `openai-deep-research` | **需要深度数据时必须使用** | 浏览器自动化、多轮搜索、登录网站、结构化输出 |
-| 🥈 2nd | `WebFetch` | 已知具体 URL | 单页面抓取 |
-| 🥉 3rd | `WebSearch` | 仅快速验证事实 | 简单搜索，结果浅层 |
+| 优先级 | 工具 | 使用条件 |
+|--------|------|----------|
+| 🥇 **1st** | `deep-research` | `required: true` 或 capabilities.deep_research=true |
+| 🥈 2nd | `WebSearch` | 仅当 deep-research 不可用时的 fallback |
 
-### ⚠️ 强制规则
-
-**当 skeleton.yaml 中存在 `research_needs` 时：**
+### ❌ 禁止行为
 
 ```
-❌ 禁止: 直接使用 WebSearch 获取数据
-✅ 必须: 调用 openai-deep-research skill 执行深度研究
+❌ 看到 research_tasks 却不执行研究
+❌ 使用 WebSearch 代替 deep-research（当可用时）
+❌ 不显式输出研究任务就直接填充内容
+❌ 填充的内容没有来源引用
+❌ 使用过时数据（超过6个月）
 ```
 
-**调用方式：**
+### ✅ 正确流程示例
 
-```python
-# 方式1: 通过 Task agent 调用 deep-research
-Task(
-    subagent_type="general-purpose",
-    prompt="使用 openai-deep-research skill 研究: {query}"
-)
-
-# 方式2: 直接调用研究脚本
-python ppt-enrich/scripts/research/deep_research.py \
-    --query "{query}" \
-    --output research_results.json
 ```
-
-### 为什么不用 WebSearch？
-
-| WebSearch | deep-research |
-|-----------|---------------|
-| 返回 10 条摘要 | 返回完整分析报告 |
-| 无法进入付费墙 | 可用浏览器登录 |
-| 单轮搜索 | 多轮迭代研究 |
-| 无来源验证 | 结构化引用来源 |
-
-**记住：PPT 需要的是深度洞察，不是搜索结果拼凑！**
+1. 读取 skeleton.yaml
+2. 发现 research_tasks: [r01, r02, r03]
+3. 输出: "🔍 RESEARCH TASK [r01]..."
+4. 调用: Task(subagent_type="general-purpose", prompt="使用 deep-research...")
+5. 等待结果
+6. 输出: "🔍 RESEARCH TASK [r02]..."
+7. 调用: Task(...)
+8. ...
+9. 生成 slide-md，填充 <!-- @RESEARCH: rXX --> 标记
+```
 
 ---
 

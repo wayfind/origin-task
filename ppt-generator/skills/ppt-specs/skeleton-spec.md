@@ -135,7 +135,24 @@ structure:
         duration: integer    # 预计时长（秒）
 
 #═══════════════════════════════════════════════════════════════
-# 全局研究需求（跨章节）
+# 研究任务（可执行的研究指令）
+#═══════════════════════════════════════════════════════════════
+research_tasks:
+  - # 研究任务定义
+    id: string               # 唯一标识符，如 "r01", "r02"
+    query: string            # 详细的研究提示词（多行支持）
+    skill: string            # 使用的 skill: "deep-research" | "websearch"
+    required: boolean        # true=必须执行, false=可选
+    output_format: string    # 期望的输出格式模板
+
+    # 可选配置
+    type: enum               # market_data | news_events | case_study | statistics | comparison | forecast
+    timeout: integer         # 超时时间（秒），默认 300
+    cache: boolean           # 是否缓存结果，默认 true
+    apply_to: [string]       # 应用到哪些章节/幻灯片 ID
+
+#═══════════════════════════════════════════════════════════════
+# 全局研究需求（跨章节）- 旧格式，建议使用 research_tasks
 #═══════════════════════════════════════════════════════════════
 global_research:
   # 贯穿全 PPT 的研究需求
@@ -188,7 +205,71 @@ extensions:
 | `closing` | 结尾 | 总结、行动清单、Q&A | 简洁有力 |
 | `transition` | 过渡 | 章节间转场 | 引用 + 图 |
 
-### 3.2 研究需求类型 (research_needs[].type)
+### 3.2 研究任务 (research_tasks)
+
+> **重要**: `research_tasks` 是可执行的研究指令，AI **必须**按规定流程执行。
+
+#### 字段说明
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `id` | string | ✅ | 唯一标识符，用于 slide-md 中引用 |
+| `query` | string | ✅ | 详细的研究提示词 |
+| `skill` | string | ✅ | 使用的 skill: `deep-research` / `websearch` |
+| `required` | boolean | ✅ | `true` 表示必须执行 |
+| `output_format` | string | 建议 | 期望的输出格式模板 |
+| `type` | enum | 可选 | 任务类型分类 |
+| `apply_to` | [string] | 可选 | 关联的章节/幻灯片 ID |
+
+#### 示例
+
+```yaml
+research_tasks:
+  - id: "r01"
+    query: |
+      Tesla TSLA stock performance in 2025:
+      - Opening price (January 2025)
+      - Closing price (December 2025)
+      - Year-over-year percentage change
+      - Top 3 events that impacted the stock price
+    skill: "deep-research"
+    required: true
+    type: market_data
+    output_format: |
+      ## 2025年股价表现
+      - 年初价格: $XXX.XX
+      - 年末价格: $XXX.XX
+      - 涨跌幅: +/-XX.X%
+      ### 关键事件
+      1. [事件描述] (日期)
+      2. [事件描述] (日期)
+      3. [事件描述] (日期)
+      *来源: [数据来源]*
+    apply_to: ["02-review"]
+
+  - id: "r02"
+    query: "Tesla vs BYD global EV market share comparison 2025"
+    skill: "deep-research"
+    required: true
+    type: comparison
+    output_format: |
+      | 指标 | Tesla | BYD |
+      |------|-------|-----|
+      | 全球销量 | XXX万 | XXX万 |
+      | 市场份额 | XX% | XX% |
+```
+
+#### slide-md 中引用
+
+```markdown
+<!-- @RESEARCH: r01 -->
+此处将由研究结果自动填充
+<!-- @/RESEARCH -->
+```
+
+### 3.3 研究需求类型 (research_needs[].type) - 旧格式
+
+> 注意：建议使用新的 `research_tasks` 格式，旧格式仍然支持但不推荐。
 
 | 类型 | 说明 | 输出期望 |
 |------|------|----------|
@@ -198,7 +279,7 @@ extensions:
 | `trend` | 趋势分析 | 趋势描述、数据支撑 |
 | `comparison` | 对比分析 | 对比维度、结论 |
 
-### 3.3 场合类型 (presentation.occasion)
+### 3.4 场合类型 (presentation.occasion)
 
 | 场合 | 特点 | 样式建议 |
 |------|------|----------|
