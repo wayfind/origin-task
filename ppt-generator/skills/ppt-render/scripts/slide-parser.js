@@ -157,9 +157,50 @@ class SlideParser {
         const lines = body.split('\n');
         let currentBlock = null;
         let blockContent = [];
+        let inCodeBlock = false;
+        let codeBlockLang = null;
+        let codeBlockContent = [];
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
+
+            // 代码块开始 ```mermaid 或 ```其他
+            const codeBlockStart = line.match(/^```(\w+)?/);
+            if (codeBlockStart && !inCodeBlock) {
+                inCodeBlock = true;
+                codeBlockLang = codeBlockStart[1] || 'text';
+                codeBlockContent = [];
+                continue;
+            }
+
+            // 代码块结束 ```
+            if (line === '```' && inCodeBlock) {
+                // 处理 Mermaid 代码块
+                if (codeBlockLang === 'mermaid') {
+                    result.elements.push({
+                        type: 'mermaid',
+                        code: codeBlockContent.join('\n'),
+                        lang: 'mermaid'
+                    });
+                } else {
+                    // 普通代码块
+                    result.elements.push({
+                        type: 'codeblock',
+                        code: codeBlockContent.join('\n'),
+                        lang: codeBlockLang
+                    });
+                }
+                inCodeBlock = false;
+                codeBlockLang = null;
+                codeBlockContent = [];
+                continue;
+            }
+
+            // 在代码块内
+            if (inCodeBlock) {
+                codeBlockContent.push(line);
+                continue;
+            }
 
             // 主标题
             if (line.startsWith('# ')) {
@@ -275,6 +316,10 @@ class SlideParser {
             return this.parseCard(content);
         }
 
+        if (type === 'chart') {
+            return this.parseChartBlock(content);
+        }
+
         if (type === 'left' || type === 'right') {
             return {
                 type: 'column',
@@ -288,6 +333,90 @@ class SlideParser {
             blockType: type,
             rawContent: content
         };
+    }
+
+    /**
+     * 解析图表块 ::: chart
+     */
+    parseChartBlock(content) {
+        const chart = {
+            type: 'chart',
+            template: null,
+            title: '',
+            data: {}
+        };
+
+        const lines = content.split('\n');
+        let currentKey = null;
+        let currentList = [];
+
+        for (const line of lines) {
+            const trimmed = line.trim();
+
+            // template: xxx
+            const templateMatch = trimmed.match(/^template:\s*(.+)/);
+            if (templateMatch) {
+                chart.template = templateMatch[1].trim();
+                continue;
+            }
+
+            // title: xxx
+            const titleMatch = trimmed.match(/^title:\s*(.+)/);
+            if (titleMatch) {
+                chart.title = titleMatch[1].trim();
+                continue;
+            }
+
+            // key: (开始一个列表)
+            const keyMatch = trimmed.match(/^(\w+):$/);
+            if (keyMatch) {
+                if (currentKey && currentList.length > 0) {
+                    chart.data[currentKey] = currentList;
+                }
+                currentKey = keyMatch[1];
+                currentList = [];
+                continue;
+            }
+
+            // - label: xxx 或 - label | detail
+            if (trimmed.startsWith('- ')) {
+                const item = trimmed.substring(2).trim();
+
+                // 检查 label: value 格式
+                const labelMatch = item.match(/^label:\s*(.+)/);
+                if (labelMatch) {
+                    currentList.push({ label: labelMatch[1] });
+                    continue;
+                }
+
+                // 检查 label | detail 格式
+                const pipeMatch = item.match(/^(.+?)\s*\|\s*(.+)$/);
+                if (pipeMatch) {
+                    currentList.push({
+                        label: pipeMatch[1].trim(),
+                        detail: pipeMatch[2].trim()
+                    });
+                    continue;
+                }
+
+                // 简单字符串
+                currentList.push({ label: item });
+                continue;
+            }
+
+            // detail: xxx (附加到最后一个项)
+            const detailMatch = trimmed.match(/^detail:\s*(.+)/);
+            if (detailMatch && currentList.length > 0) {
+                currentList[currentList.length - 1].detail = detailMatch[1];
+            }
+        }
+
+        // 保存最后的列表
+        if (currentKey && currentList.length > 0) {
+            chart.data[currentKey] = currentList;
+        }
+
+        return chart;
     }
 
     /**

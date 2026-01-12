@@ -2,6 +2,11 @@
 """
 PPT Enrich - 主入口脚本
 从 skeleton.yaml 生成完整的 slide-md 内容文件
+
+特性：
+- 自动检测内容空缺
+- Deep Research 集成（可选）
+- Nano Banana 图片生成（可选）
 """
 
 import os
@@ -20,6 +25,24 @@ from slidemd_writer import SlideMDWriter, SlideContent
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'ppt-outline' / 'scripts'))
 from context_scanner import ContextScanner
 
+# 图片生成器（延迟加载）
+_image_manager = None
+
+def get_image_manager(output_dir: Path, theme: str, verbose: bool):
+    """延迟加载图片生成器"""
+    global _image_manager
+    if _image_manager is None:
+        try:
+            from research.image_generator import ImageGeneratorManager
+            _image_manager = ImageGeneratorManager(
+                output_dir=output_dir,
+                theme=theme,
+                verbose=verbose
+            )
+        except ImportError:
+            pass
+    return _image_manager
+
 
 class PPTEnrich:
     """PPT 内容增强器"""
@@ -32,6 +55,8 @@ class PPTEnrich:
             'research_mode': 'mock',  # browser | api | mock
             'cache_enabled': True,
             'cache_dir': '.cache/research',
+            'generate_images': True,  # 是否生成装饰图片
+            'theme': 'nano-banana-pro',  # 图片主题
             'verbose': False,
             **kwargs
         }
@@ -51,6 +76,9 @@ class PPTEnrich:
 
         # 研究结果缓存
         self.research_cache = {}
+
+        # 图片路径映射
+        self.image_paths = {}
 
     def detect_gaps(self) -> List[Dict]:
         """检测内容空缺"""
@@ -127,10 +155,21 @@ class PPTEnrich:
         return {}
 
     def _browser_research(self, request: Dict) -> Dict:
-        """通过浏览器执行研究（调用 openai-deep-research）"""
-        # TODO: 集成 openai-deep-research skill
-        print(f"  [browser] Not implemented yet, using mock")
-        return self._mock_research(request)
+        """通过浏览器执行研究（自动发现并调用 openai-deep-research）"""
+        try:
+            from research import ResearchRunner
+            runner = ResearchRunner(
+                headless=True,
+                timeout=2400,
+                verbose=self.options.get("verbose", False)
+            )
+            return runner.execute(request)
+        except ImportError:
+            print("  [browser] research module not found, using mock")
+            return self._mock_research(request)
+        except Exception as e:
+            print(f"  [browser] Research failed: {e}, using mock")
+            return self._mock_research(request)
 
     def _api_research(self, request: Dict) -> Dict:
         """通过 API 执行研究"""
@@ -161,6 +200,41 @@ class PPTEnrich:
         cache_path = cache_dir / f"{cache_key}.json"
         with open(cache_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
+
+    def generate_images(self) -> Dict[str, Path]:
+        """生成装饰图片"""
+        if not self.options.get('generate_images', True):
+            if self.options['verbose']:
+                print("Image generation disabled")
+            return {}
+
+        output_dir = Path(self.options['output_dir']) / 'images'
+        theme = self.options.get('theme', 'nano-banana-pro')
+        verbose = self.options.get('verbose', False)
+
+        manager = get_image_manager(output_dir, theme, verbose)
+        if manager is None:
+            if verbose:
+                print("Image generator not available")
+            return {}
+
+        if not manager.is_available():
+            if verbose:
+                status = manager.get_status()
+                print(f"Image generation not available: {status}")
+                if not status.get('gemini_configured'):
+                    print("  Hint: Run 'python generate_image.py --check' to configure Gemini API")
+            return {}
+
+        if self.options['verbose']:
+            print("\nGenerating images...")
+
+        self.image_paths = manager.generate_for_skeleton(self.skeleton)
+
+        if self.options['verbose']:
+            print(f"Generated {len(self.image_paths)} images")
+
+        return self.image_paths
 
     def generate(self, output_dir: str = None) -> List[str]:
         """生成 slide-md 文件"""
@@ -347,7 +421,18 @@ def main():
 
     parser = argparse.ArgumentParser(
         description='从 skeleton.yaml 生成 slide-md 文件',
-        formatter_class=argparse.RawDescriptionHelpFormatter
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+示例:
+  %(prog)s skeleton.yaml                      # 基本用法
+  %(prog)s skeleton.yaml -o ./slides          # 指定输出目录
+  %(prog)s skeleton.yaml --research-mode browser  # 使用 Deep Research
+  %(prog)s skeleton.yaml --no-images          # 跳过图片生成
+
+主题:
+  nano-banana-pro   Nano Banana Pro 风格（深色科技感）
+  corporate-light   企业浅色风格
+        """
     )
 
     parser.add_argument('skeleton', help='skeleton.yaml 文件')
@@ -356,6 +441,10 @@ def main():
     parser.add_argument('--no-research', action='store_true', help='跳过研究')
     parser.add_argument('--research-mode', choices=['browser', 'api', 'mock'],
                        default='mock', help='研究模式')
+    parser.add_argument('--no-images', action='store_true', help='跳过图片生成')
+    parser.add_argument('--theme', default='nano-banana-pro',
+                       choices=['nano-banana-pro', 'corporate-light'],
+                       help='图片主题风格')
     parser.add_argument('-v', '--verbose', action='store_true', help='详细输出')
 
     args = parser.parse_args()
@@ -365,6 +454,8 @@ def main():
         context_dir=args.context,
         output_dir=args.output,
         research_mode=args.research_mode,
+        generate_images=not args.no_images,
+        theme=args.theme,
         verbose=args.verbose
     )
 
@@ -377,11 +468,17 @@ def main():
         print("\nRunning research...")
         enricher.run_research()
 
+    # 生成图片
+    if not args.no_images:
+        enricher.generate_images()
+
     # 生成 slide-md
     print("\nGenerating slides...")
     paths = enricher.generate(args.output)
 
     print(f"\n✓ Generated {len(paths)} slides in {args.output}/")
+    if enricher.image_paths:
+        print(f"✓ Generated {len(enricher.image_paths)} images in {args.output}/images/")
 
 
 if __name__ == '__main__':

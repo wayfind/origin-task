@@ -1,17 +1,53 @@
 /**
  * PPTX Renderer
  * 使用 pptxgenjs 将解析后的 slide 数据渲染为 PPTX
+ *
+ * 支持布局：
+ * - title-only: 仅标题（封面/章节）
+ * - bullets: 要点列表
+ * - two-column: 双列
+ * - three-cards: 三列卡片
+ * - table: 表格
+ * - quote: 引用
+ * - chart: 图表（Mermaid/模板）
  */
 
 const pptxgen = require('pptxgenjs');
+const fs = require('fs');
+const path = require('path');
+
+// 延迟加载 ChartRenderer
+let ChartRenderer = null;
+try {
+    ChartRenderer = require('./chart-renderer').ChartRenderer;
+} catch (e) {
+    // chart-renderer 可能不存在
+}
 
 class PPTXRenderer {
     /**
      * @param {Object} theme - 主题配置
+     * @param {Object} options - 渲染选项
      */
-    constructor(theme) {
+    constructor(theme, options = {}) {
         this.theme = theme;
         this.pptx = null;
+        this.options = {
+            chartOutputDir: './charts',
+            chartTheme: 'nano-banana',
+            verbose: false,
+            ...options
+        };
+
+        // 初始化 ChartRenderer
+        this.chartRenderer = null;
+        if (ChartRenderer) {
+            this.chartRenderer = new ChartRenderer({
+                outputDir: this.options.chartOutputDir,
+                theme: this.options.chartTheme,
+                verbose: this.options.verbose
+            });
+        }
     }
 
     /**
@@ -49,7 +85,8 @@ class PPTXRenderer {
             'two-column': () => this.renderTwoColumn(meta, content),
             'three-cards': () => this.renderThreeCards(meta, content),
             'table': () => this.renderTable(meta, content),
-            'quote': () => this.renderQuote(meta, content)
+            'quote': () => this.renderQuote(meta, content),
+            'chart': () => this.renderChart(meta, content)
         };
 
         const renderer = layoutRenderers[layout] || layoutRenderers['bullets'];
@@ -441,6 +478,119 @@ class PPTXRenderer {
         }
 
         return slide;
+    }
+
+    /**
+     * 图表布局（Mermaid 或模板）
+     */
+    renderChart(meta, content) {
+        const slide = this.pptx.addSlide();
+        const C = this.theme.colors;
+
+        slide.background = { color: this.stripHash(C.background.default) };
+
+        // 标题
+        slide.addText(content.title || '', {
+            x: 0.5, y: 0.3, w: 9, h: 0.5,
+            fontSize: this.theme.typography.scale.slide_title,
+            color: this.stripHash(C.primary),
+            bold: true
+        });
+
+        // 分隔线
+        slide.addShape(this.pptx.shapes.RECTANGLE, {
+            x: 0.5, y: 0.85, w: 1.5, h: 0.04,
+            fill: { color: this.stripHash(C.accent) }
+        });
+
+        // 查找图表元素
+        const chartEl = content.elements.find(e => e.type === 'chart');
+        const mermaidEl = content.elements.find(e => e.type === 'mermaid');
+
+        let imagePath = null;
+
+        // 处理 Mermaid 代码块
+        if (mermaidEl && this.chartRenderer) {
+            const outputName = `chart-${meta.id || Date.now()}`;
+            imagePath = this.chartRenderer.renderMermaid(mermaidEl.code, outputName);
+        }
+
+        // 处理预定义模板
+        if (chartEl && chartEl.template && this.chartRenderer) {
+            const outputName = `chart-${meta.id || Date.now()}`;
+            imagePath = this.chartRenderer.renderTemplate(
+                chartEl.template,
+                chartEl.data,
+                outputName
+            );
+        }
+
+        // 添加图表图片
+        if (imagePath && fs.existsSync(imagePath)) {
+            slide.addImage({
+                path: imagePath,
+                x: 0.5, y: 1.1,
+                w: 9, h: 4.0
+            });
+
+            if (this.options.verbose) {
+                console.log(`[PPTXRenderer] Added chart image: ${imagePath}`);
+            }
+        } else {
+            // 图表渲染失败，显示占位符
+            slide.addText('图表渲染中...', {
+                x: 0.5, y: 2.5, w: 9, h: 1,
+                fontSize: 20,
+                color: this.stripHash(C.text.secondary),
+                align: 'center'
+            });
+
+            // 如果有 chart 元素，显示模板信息
+            if (chartEl) {
+                slide.addText(`模板: ${chartEl.template || 'N/A'}`, {
+                    x: 0.5, y: 3.5, w: 9, h: 0.5,
+                    fontSize: 14,
+                    color: this.stripHash(C.text.secondary),
+                    align: 'center'
+                });
+            }
+
+            // 如果有 mermaid 元素，显示部分代码
+            if (mermaidEl) {
+                const codePreview = mermaidEl.code.split('\n').slice(0, 3).join('\n') + '...';
+                slide.addText(codePreview, {
+                    x: 1, y: 3.0, w: 8, h: 1.5,
+                    fontSize: 10,
+                    fontFace: 'Consolas',
+                    color: this.stripHash(C.text.secondary),
+                    align: 'left'
+                });
+            }
+        }
+
+        return slide;
+    }
+
+    /**
+     * 在 bullets 布局中处理 Mermaid 元素
+     */
+    handleMermaidInLayout(slide, mermaidEl, x, y, w, h) {
+        if (!mermaidEl || !this.chartRenderer) {
+            return false;
+        }
+
+        const outputName = `inline-chart-${Date.now()}`;
+        const imagePath = this.chartRenderer.renderMermaid(mermaidEl.code, outputName);
+
+        if (imagePath && fs.existsSync(imagePath)) {
+            slide.addImage({
+                path: imagePath,
+                x, y, w, h
+            });
+            return true;
+        }
+
+        return false;
     }
 
     // ==================== 工具方法 ====================

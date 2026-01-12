@@ -2,6 +2,11 @@
 """
 PPT Orchestrator
 编排 outline → enrich → render 流程
+
+特性：
+- 交互式向导：检测缺失信息时引导用户输入
+- 配置文件：支持 .pptrc.yaml 多级配置
+- 断点恢复：从 .ppt-state.json 恢复
 """
 
 import os
@@ -14,6 +19,8 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 from intent_parser import IntentParser, PPTIntent
+from wizard import InteractiveWizard, run_wizard
+from config_loader import ConfigLoader, PPTConfig, load_config
 
 # Skills 路径
 SKILLS_ROOT = Path(__file__).parent.parent.parent
@@ -27,9 +34,12 @@ class PPTOrchestrator:
 
     STAGES = ['outline', 'enrich', 'render']
 
-    def __init__(self, verbose: bool = False):
+    def __init__(self, verbose: bool = False, work_dir: Path = None):
         self.verbose = verbose
+        self.work_dir = Path(work_dir) if work_dir else Path.cwd()
         self.intent_parser = IntentParser()
+        self.config_loader = ConfigLoader(self.work_dir)
+        self.config: Optional[PPTConfig] = None
         self.state = {
             'stage': None,
             'skeleton_path': None,
@@ -42,10 +52,66 @@ class PPTOrchestrator:
     def run(self, input_str: str = None, context_dir: str = None,
             skeleton_path: str = None, resume_state: str = None,
             output: str = None, theme: str = None, duration: int = None,
-            no_research: bool = False, step: str = None) -> str:
-        """执行完整流程"""
+            audience: str = None, occasion: str = None,
+            no_research: bool = False, no_images: bool = False,
+            step: str = None, interactive: bool = True) -> str:
+        """执行完整流程
 
-        # 1. 解析意图
+        Args:
+            input_str: 输入字符串（目录/文件/描述）
+            context_dir: 文档目录
+            skeleton_path: 骨架文件路径
+            resume_state: 恢复状态文件
+            output: 输出文件
+            theme: 主题
+            duration: 时长
+            audience: 受众类型
+            occasion: 演示场合
+            no_research: 跳过研究
+            no_images: 跳过图片生成
+            step: 执行到指定阶段
+            interactive: 是否启用交互式向导
+        """
+
+        # 0. 加载配置文件
+        cli_overrides = {
+            'output': output,
+            'theme': theme,
+            'duration': duration,
+            'audience': audience,
+            'occasion': occasion,
+            'no_images': no_images,
+            'mock': no_research,
+            'verbose': self.verbose,
+        }
+        self.config = self.config_loader.load(cli_overrides)
+
+        if self.verbose:
+            sources = self.config_loader.get_sources()
+            self._log(f"Configuration loaded from: {', '.join(sources)}")
+
+        # 1. 如果无输入且启用交互，运行向导
+        wizard_params = None
+        if interactive and not input_str and not context_dir and not skeleton_path and not resume_state:
+            wizard_params = self._run_wizard()
+            if wizard_params:
+                # 应用向导收集的参数
+                if wizard_params.get('context_dir'):
+                    context_dir = wizard_params['context_dir']
+                if wizard_params.get('skeleton_path'):
+                    skeleton_path = wizard_params['skeleton_path']
+                if wizard_params.get('title'):
+                    input_str = wizard_params['title']
+                if wizard_params.get('duration') and not duration:
+                    duration = wizard_params['duration']
+                if wizard_params.get('audience') and not audience:
+                    audience = wizard_params['audience']
+                if wizard_params.get('occasion') and not occasion:
+                    occasion = wizard_params['occasion']
+                if wizard_params.get('theme') and not theme:
+                    theme = wizard_params['theme']
+
+        # 2. 解析意图
         intent = self.intent_parser.parse(
             input_str=input_str,
             context_dir=context_dir,
@@ -53,14 +119,29 @@ class PPTOrchestrator:
             resume_state=resume_state
         )
 
-        # 覆盖参数
+        # 3. 应用配置和覆盖参数
+        # 优先级: 命令行/向导 > 配置文件 > 默认值
         if output:
             intent.output_path = output
+        elif self.config.output_dir:
+            intent.output_path = str(Path(self.config.output_dir) / 'presentation.pptx')
+
         if theme:
             intent.theme = theme
+        elif self.config.theme:
+            intent.theme = self.config.theme
+
         if duration:
             intent.duration = duration
-        if no_research:
+        elif self.config.duration:
+            intent.duration = self.config.duration
+
+        if audience:
+            intent.audience = audience
+        elif self.config.audience:
+            intent.audience = self.config.audience
+
+        if no_research or self.config.research_mode == 'mock':
             intent.require_research = False
 
         if self.verbose:
@@ -200,6 +281,31 @@ class PPTOrchestrator:
 
         return output_path
 
+    def _run_wizard(self) -> Optional[Dict[str, Any]]:
+        """运行交互式向导"""
+        self._log("\n" + "=" * 55)
+        self._log("  PPT 生成向导")
+        self._log("=" * 55)
+
+        wizard = InteractiveWizard(
+            work_dir=self.work_dir,
+            config=self.config.to_dict() if self.config else {}
+        )
+        wizard.detect_context()
+
+        if wizard.needs_interaction():
+            return wizard.run_interactive()
+        else:
+            # 不需要交互，返回检测到的参数
+            ctx = wizard.context
+            self._log("\n自动检测到完整上下文，跳过向导。")
+            return {
+                'title': ctx.detected_title,
+                'duration': ctx.detected_duration or 30,
+                'context_dir': str(ctx.detected_docs_dir) if ctx.detected_docs_dir else None,
+                'skeleton_path': str(ctx.detected_skeleton) if ctx.detected_skeleton else None,
+            }
+
     def _save_state(self, path: Path):
         """保存状态"""
         with open(path, 'w', encoding='utf-8') as f:
@@ -223,23 +329,54 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 示例:
+  %(prog)s                             # 启动交互式向导
   %(prog)s ./docs/                     # 从文档目录生成
   %(prog)s ./docs/ -o my.pptx          # 指定输出文件
   %(prog)s "AI培训，60分钟"             # 从自然语言生成
   %(prog)s --resume .ppt-state.json    # 从断点恢复
+  %(prog)s --init-config               # 生成配置文件模板
+
+主题:
+  corporate-light    企业浅色（正式场合）
+  nano-banana-pro    Nano Banana Pro（创意/科技）
+
+受众:
+  executives         高管决策层
+  managers           中层管理
+  professionals      专业人士（默认）
+  general            通用受众
+
+场合:
+  training           培训
+  pitch              汇报/提案
+  conference         会议演讲（默认）
+  workshop           工作坊
         """
     )
 
     parser.add_argument('input', nargs='?', help='输入（目录/文件/描述）')
-    parser.add_argument('-o', '--output', default='presentation.pptx', help='输出文件')
-    parser.add_argument('-t', '--theme', default='corporate-light', help='主题')
+    parser.add_argument('-o', '--output', help='输出文件')
+    parser.add_argument('-t', '--theme', help='主题 (corporate-light, nano-banana-pro)')
     parser.add_argument('-d', '--duration', type=int, help='时长（分钟）')
+    parser.add_argument('-a', '--audience', help='受众类型')
+    parser.add_argument('--occasion', help='演示场合')
     parser.add_argument('--no-research', action='store_true', help='跳过研究')
+    parser.add_argument('--no-images', action='store_true', help='跳过图片生成')
+    parser.add_argument('--no-interactive', action='store_true', help='禁用交互式向导')
     parser.add_argument('--step', choices=['outline', 'enrich', 'render'], help='执行到指定阶段')
     parser.add_argument('--resume', help='从状态文件恢复')
+    parser.add_argument('--init-config', action='store_true', help='生成 .pptrc.yaml 配置模板')
     parser.add_argument('-v', '--verbose', action='store_true', help='详细输出')
 
     args = parser.parse_args()
+
+    # 生成配置模板
+    if args.init_config:
+        loader = ConfigLoader()
+        path = loader.save_template()
+        print(f"✓ Configuration template saved to: {path}")
+        print("  Edit the file to customize your defaults.")
+        return
 
     orchestrator = PPTOrchestrator(verbose=args.verbose)
 
@@ -249,13 +386,23 @@ def main():
             output=args.output,
             theme=args.theme,
             duration=args.duration,
+            audience=args.audience,
+            occasion=args.occasion,
             no_research=args.no_research,
+            no_images=args.no_images,
             step=args.step,
-            resume_state=args.resume
+            resume_state=args.resume,
+            interactive=not args.no_interactive
         )
         print(f"\n✓ Generated: {output}")
+    except KeyboardInterrupt:
+        print("\n\n✗ Cancelled by user")
+        sys.exit(130)
     except Exception as e:
         print(f"\n✗ Error: {e}")
+        if args.verbose:
+            import traceback
+            traceback.print_exc()
         sys.exit(1)
 
 
