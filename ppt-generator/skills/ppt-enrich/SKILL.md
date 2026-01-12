@@ -1,3 +1,11 @@
+---
+name: ppt-enrich
+description: |
+  PPT content enricher - Generate slide content from skeleton with research.
+  Use when: (1) User has skeleton.yaml and needs content, (2) User wants to fill in slide details, (3) User needs research to enrich presentation.
+  Triggers: "PPT内容", "enrich slides", "填充内容", "slide-md", "内容补充"
+---
+
 # /ppt-enrich
 
 > 从 skeleton.yaml 生成完整的 slide-md 内容文件

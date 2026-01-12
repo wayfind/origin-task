@@ -1,0 +1,14 @@
+{
+  "name": "skill-test",
+  "version": "1.0.0",
+  "description": "Claude Code skill testing and validation toolkit",
+  "author": "origin-task",
+  "category": "development",
+  "skills": [
+    {
+      "name": "skill-test",
+      "path": "./skills/skill-test"
+    }
+  ],
+  "hooks": {}
+}

@@ -1,3 +1,11 @@
+---
+name: ppt-render
+description: |
+  PPT renderer - Convert slide-md files to professional PPTX.
+  Use when: (1) User has slide-md files and needs PPTX output, (2) User wants to render presentation with specific theme, (3) User needs final PowerPoint file.
+  Triggers: "渲染PPT", "render PPTX", "生成幻灯片", "slide to pptx", "导出PPT"
+---
+
 # /ppt-render
 
 > 从 Slide Markdown 文件渲染生成 PPTX 演示文稿

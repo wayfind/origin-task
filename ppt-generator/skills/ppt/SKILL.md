@@ -1,3 +1,11 @@
+---
+name: ppt
+description: |
+  PPT generation orchestrator - One-click professional PPTX creation.
+  Use when: (1) User wants to generate complete PPT from documents, (2) User provides natural language description for presentation, (3) User needs to convert content to slides.
+  Triggers: "生成PPT", "create presentation", "make slides", "PPT", "演示文稿", "幻灯片"
+---
+
 # /ppt
 
 > 一键生成专业 PPT 的编排器

@@ -1,3 +1,11 @@
+---
+name: ppt-outline
+description: |
+  PPT skeleton generator - Create structured outline from context.
+  Use when: (1) User wants to plan PPT structure, (2) User needs to clarify presentation requirements, (3) User wants to generate skeleton.yaml from documents.
+  Triggers: "PPT大纲", "outline", "骨架", "skeleton", "PPT结构", "presentation structure"
+---
+
 # /ppt-outline
 
 > 从上下文生成 PPT 骨架结构（skeleton.yaml）

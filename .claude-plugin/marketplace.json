@@ -38,6 +38,17 @@
       "author": {
         "name": "wayfind"
       }
+    },
+    {
+      "name": "skill-test",
+      "source": "./skill-test",
+      "description": "Claude Code skill testing and validation toolkit - validates installation, dependencies, and execution",
+      "version": "1.0.0",
+      "category": "development",
+      "keywords": ["test", "validate", "skill", "plugin", "check", "verify", "smoke-test", "dependencies", "测试", "验证"],
+      "author": {
+        "name": "wayfind"
+      }
     }
   ]
 }
