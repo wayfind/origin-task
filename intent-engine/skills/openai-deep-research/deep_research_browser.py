@@ -21,59 +21,98 @@ import shutil
 import subprocess
 import sys
 import time
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 # =============================================================================
-# Constants
+# Configuration
 # =============================================================================
 
 STATE_DIR = Path.home() / ".openai-deep-research"
 DEFAULT_SESSION = "default"
 
-# Timeouts
-TIMEOUT_S = 2400  # 40 minutes default
-POLL_INTERVAL_S = 60
-SELECTOR_TIMEOUT_MS = 2000
-LOGIN_CHECK_MS = 5000
-LOGIN_WAIT_MS = 300000  # 5 minutes for manual login
-INPUT_WAIT_MS = 3000
 
-# Content thresholds
-TAIL_CHECK_CHARS = 2000  # Check last N chars for thinking patterns
-MIN_REPORT_CHARS = 3000  # Minimum chars for a valid report
-MIN_CONTENT_CHARS = 2000  # Minimum chars for any useful content
-MAX_QUERY_CHARS = 50000  # Maximum query length
-STABLE_REPORT_COUNT = 15  # Iterations before considering report complete
-STABLE_RESPONSE_COUNT = 45  # Iterations before considering response stable
-STATUS_INTERVAL = 30  # Show status every N iterations
-SIGNIFICANT_DIFF_CHARS = 50  # Minimum chars to log as progress
+@dataclass
+class TimeoutConfig:
+    """Timeout settings in various units."""
+    default_s: int = 2400          # 40 minutes total timeout
+    poll_interval_s: int = 60      # Check for completion every 60s
+    selector_ms: int = 2000        # Wait for UI elements
+    login_check_ms: int = 5000     # Quick check if logged in
+    login_wait_ms: int = 300000    # 5 minutes for manual login
+    input_wait_ms: int = 3000      # Wait for input field
 
-# Browser
-VIEWPORT = {"width": 1400, "height": 900}
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
 
-# Selectors (ChatGPT UI)
-SEL_PLUS_BTN = ['button[aria-label*="Attach"]', 'button[aria-label*="Add"]']
-SEL_INPUT = ['#prompt-textarea', 'textarea[placeholder*="Message"]', 'div[contenteditable="true"]']
-SEL_SUBMIT = ['button[data-testid="send-button"]', 'button[aria-label*="Send"]']
-SEL_ASSISTANT = '[data-message-author-role="assistant"]'
-SEL_LOGIN = ['nav', '[data-testid="profile-button"]']
+@dataclass
+class ContentConfig:
+    """Content detection thresholds."""
+    tail_check_chars: int = 2000       # Check last N chars for thinking patterns
+    min_report_chars: int = 3000       # Minimum chars for a valid report
+    min_content_chars: int = 2000      # Minimum chars for any useful content
+    max_query_chars: int = 50000       # Maximum query length
+    stable_report_count: int = 15      # Iterations before report is complete
+    stable_response_count: int = 45    # Iterations before response is stable
+    status_interval: int = 30          # Show status every N iterations
+    significant_diff_chars: int = 50   # Minimum chars to log as progress
 
-# Content patterns
-THINKING_PATTERNS = (
-    "i'm ", "i'll ", "let me ", "searching ", "reading ", "analyzing ",
-    "gathering ", "piecing ", "feel free to keep chatting", "i'll get back to you",
-)
-REPORT_PATTERNS = (
-    "## Summary", "## Overview", "## Conclusion", "## Key Findings",
-    "In conclusion,", "Based on my research,",
-)
-RESEARCH_STARTED = (
-    "I'll get back to you", "I'll let you know", "feel free to keep chatting",
-)
-CLARIFY_PATTERNS = (
-    "could you clarify", "what specific", "would you like me to",
-)
+
+@dataclass
+class BrowserConfig:
+    """Browser settings."""
+    viewport: Dict[str, int] = field(default_factory=lambda: {"width": 1400, "height": 900})
+    user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0.0.0 Safari/537.36"
+
+
+@dataclass
+class SelectorsConfig:
+    """ChatGPT UI selectors (may need updates as UI changes)."""
+    plus_btn: List[str] = field(default_factory=lambda: [
+        'button[aria-label*="Attach"]', 'button[aria-label*="Add"]'
+    ])
+    input_field: List[str] = field(default_factory=lambda: [
+        '#prompt-textarea', 'textarea[placeholder*="Message"]', 'div[contenteditable="true"]'
+    ])
+    submit_btn: List[str] = field(default_factory=lambda: [
+        'button[data-testid="send-button"]', 'button[aria-label*="Send"]'
+    ])
+    assistant_msg: str = '[data-message-author-role="assistant"]'
+    login_indicator: List[str] = field(default_factory=lambda: [
+        'nav', '[data-testid="profile-button"]'
+    ])
+
+
+@dataclass
+class PatternsConfig:
+    """Text patterns for content detection."""
+    thinking: Tuple[str, ...] = (
+        "i'm ", "i'll ", "let me ", "searching ", "reading ", "analyzing ",
+        "gathering ", "piecing ", "feel free to keep chatting", "i'll get back to you",
+    )
+    report: Tuple[str, ...] = (
+        "## Summary", "## Overview", "## Conclusion", "## Key Findings",
+        "In conclusion,", "Based on my research,",
+    )
+    research_started: Tuple[str, ...] = (
+        "I'll get back to you", "I'll let you know", "feel free to keep chatting",
+    )
+    clarifying: Tuple[str, ...] = (
+        "could you clarify", "what specific", "would you like me to",
+    )
+
+
+@dataclass
+class Config:
+    """Main configuration container."""
+    timeouts: TimeoutConfig = field(default_factory=TimeoutConfig)
+    content: ContentConfig = field(default_factory=ContentConfig)
+    browser: BrowserConfig = field(default_factory=BrowserConfig)
+    selectors: SelectorsConfig = field(default_factory=SelectorsConfig)
+    patterns: PatternsConfig = field(default_factory=PatternsConfig)
+
+
+# Global config instance
+cfg = Config()
 
 # =============================================================================
 # Logging
@@ -104,7 +143,6 @@ def migrate_old_session():
     if OLD_STATE_FILE.exists():
         new_file = get_state_file(DEFAULT_SESSION)
         if not new_file.exists():
-            import shutil
             shutil.copy(OLD_STATE_FILE, new_file)
             log.info(f"Migrated old session to: {new_file}")
             return True
@@ -197,26 +235,26 @@ except ImportError:
 
 def is_thinking(text):
     """Check if text contains thinking patterns (check last N chars)."""
-    tail = text[-TAIL_CHECK_CHARS:].lower() if len(text) > TAIL_CHECK_CHARS else text.lower()
-    return any(p in tail for p in THINKING_PATTERNS)
+    tail = text[-cfg.content.tail_check_chars:].lower() if len(text) > cfg.content.tail_check_chars else text.lower()
+    return any(p in tail for p in cfg.patterns.thinking)
 
 
 def is_final_report(text):
     """Check if text looks like a final report."""
-    if len(text) < MIN_REPORT_CHARS:
+    if len(text) < cfg.content.min_report_chars:
         return False
-    has_structure = any(p in text for p in REPORT_PATTERNS)
+    has_structure = any(p in text for p in cfg.patterns.report)
     return has_structure and not is_thinking(text)
 
 
 def has_research_started(text):
     """Check if Deep Research started in background."""
-    return any(p in text for p in RESEARCH_STARTED)
+    return any(p in text for p in cfg.patterns.research_started)
 
 
 def is_clarifying(text):
     """Check if asking clarifying question."""
-    return any(p in text.lower() for p in CLARIFY_PATTERNS)
+    return any(p in text.lower() for p in cfg.patterns.clarifying)
 
 
 async def save_state(context, session: str):
@@ -227,7 +265,7 @@ async def save_state(context, session: str):
     log.debug(f"State saved to {state_file}")
 
 
-async def try_click(page, selectors, timeout_ms=SELECTOR_TIMEOUT_MS):
+async def try_click(page, selectors, timeout_ms=cfg.timeouts.selector_ms):
     """Try clicking first matching selector from list."""
     for sel in selectors:
         try:
@@ -246,7 +284,7 @@ async def extract_content(page):
     """Extract assistant response content."""
     content = ""
     try:
-        elems = await page.query_selector_all(SEL_ASSISTANT)
+        elems = await page.query_selector_all(cfg.selectors.assistant_msg)
         for elem in elems:
             try:
                 content += await elem.inner_text() + "\n\n"
@@ -260,9 +298,9 @@ async def extract_content(page):
 async def wait_for_login(page, session: str, is_login_mode: bool = False):
     """Wait for user to login if needed."""
     # Check if already logged in
-    for sel in SEL_LOGIN:
+    for sel in cfg.selectors.login_indicator:
         try:
-            await page.wait_for_selector(sel, timeout=LOGIN_CHECK_MS)
+            await page.wait_for_selector(sel, timeout=cfg.timeouts.login_check_ms)
             if is_login_mode:
                 log.info("Already logged in!")
             return True
@@ -287,9 +325,9 @@ async def wait_for_login(page, session: str, is_login_mode: bool = False):
     log.info("")
 
     # Wait for login
-    for sel in SEL_LOGIN:
+    for sel in cfg.selectors.login_indicator:
         try:
-            await page.wait_for_selector(sel, timeout=LOGIN_WAIT_MS)
+            await page.wait_for_selector(sel, timeout=cfg.timeouts.login_wait_ms)
             log.info("")
             log.info("=" * 60)
             log.info("  LOGIN SUCCESSFUL!")
@@ -311,7 +349,7 @@ async def select_deep_research(page):
     log.info("Looking for Deep Research option...")
 
     # Click plus button
-    if not await try_click(page, SEL_PLUS_BTN):
+    if not await try_click(page, cfg.selectors.plus_btn):
         log.warning("Could not find plus button")
         return False
 
@@ -338,9 +376,9 @@ async def submit_query(page, query):
 
     # Find input
     input_field = None
-    for sel in SEL_INPUT:
+    for sel in cfg.selectors.input_field:
         try:
-            input_field = await page.wait_for_selector(sel, timeout=INPUT_WAIT_MS)
+            input_field = await page.wait_for_selector(sel, timeout=cfg.timeouts.input_wait_ms)
             if input_field:
                 break
         except PlaywrightTimeout:
@@ -355,7 +393,7 @@ async def submit_query(page, query):
 
     # Submit - try button first, then Enter key
     submitted = False
-    for sel in SEL_SUBMIT:
+    for sel in cfg.selectors.submit_btn:
         try:
             btn = await page.query_selector(sel)
             if btn:
@@ -375,7 +413,7 @@ async def auto_respond_if_clarifying(page):
     """Auto-respond to clarifying questions."""
     await asyncio.sleep(3)
     try:
-        elems = await page.query_selector_all(f"{SEL_ASSISTANT} .markdown")
+        elems = await page.query_selector_all(f"{cfg.selectors.assistant_msg} .markdown")
         if elems:
             text = await elems[-1].inner_text()
             if is_clarifying(text):
@@ -389,11 +427,11 @@ async def auto_respond_if_clarifying(page):
 
 async def wait_for_report(page, timeout):
     """Wait for Deep Research, refreshing periodically."""
-    log.info(f"Waiting for report (max {timeout // 60} min, checking every {POLL_INTERVAL_S}s)")
+    log.info(f"Waiting for report (max {timeout // 60} min, checking every {cfg.timeouts.poll_interval_s}s)")
     start = time.time()
 
     while time.time() - start < timeout:
-        await asyncio.sleep(POLL_INTERVAL_S)
+        await asyncio.sleep(cfg.timeouts.poll_interval_s)
         elapsed = int(time.time() - start)
         mins = elapsed // 60
 
@@ -404,9 +442,9 @@ async def wait_for_report(page, timeout):
             await asyncio.sleep(5)
 
             text = await page.inner_text("body")
-            if any(p in text for p in REPORT_PATTERNS):
+            if any(p in text for p in cfg.patterns.report):
                 content = await extract_content(page)
-                if content and len(content) > MIN_CONTENT_CHARS:
+                if content and len(content) > cfg.content.min_content_chars:
                     log.info(f"  [{mins + 1} min] Report found!")
                     return content
 
@@ -453,21 +491,21 @@ async def wait_for_response(page, timeout):
             stable_count += 1
 
             # Check completion
-            if is_final_report(content) and stable_count >= STABLE_REPORT_COUNT:
+            if is_final_report(content) and stable_count >= cfg.content.stable_report_count:
                 log.info(f"  [{elapsed}s] Report complete!")
                 break
-            elif stable_count >= STABLE_RESPONSE_COUNT and len(content) > MIN_CONTENT_CHARS:
+            elif stable_count >= cfg.content.stable_response_count and len(content) > cfg.content.min_content_chars:
                 log.info(f"  [{elapsed}s] Response stable")
                 break
 
             # Status every N iterations
-            if stable_count % STATUS_INTERVAL == 0:
+            if stable_count % cfg.content.status_interval == 0:
                 status = "thinking" if is_thinking(content) else "waiting"
                 log.info(f"  [{elapsed}s] {status}, {len(content)} chars")
         else:
             if len(content) > len(last_content):
                 diff = len(content) - len(last_content)
-                if diff > SIGNIFICANT_DIFF_CHARS:
+                if diff > cfg.content.significant_diff_chars:
                     log.info(f"  [{elapsed}s] +{diff} chars")
             stable_count = 0
 
@@ -479,7 +517,7 @@ async def wait_for_response(page, timeout):
 
 
 async def run(query, output_file=None, headless=False, skip_model=False,
-              timeout=TIMEOUT_S, session=DEFAULT_SESSION, login_only=False):
+              timeout=cfg.timeouts.default_s, session=DEFAULT_SESSION, login_only=False):
     """Main entry point."""
     state_file = get_state_file(session)
 
@@ -518,7 +556,7 @@ async def run(query, output_file=None, headless=False, skip_model=False,
         )
 
         # Setup context
-        ctx_opts = {"viewport": VIEWPORT, "user_agent": USER_AGENT}
+        ctx_opts = {"viewport": cfg.browser.viewport, "user_agent": cfg.browser.user_agent}
         if state_file.exists():
             ctx_opts["storage_state"] = str(state_file)
             log.info(f"Loading session from {state_file}")
@@ -625,8 +663,8 @@ Examples:
                         help="List all saved sessions")
 
     # Execution options
-    parser.add_argument("-t", "--timeout", type=int, default=TIMEOUT_S,
-                        help=f"Timeout in seconds (default: {TIMEOUT_S})")
+    parser.add_argument("-t", "--timeout", type=int, default=cfg.timeouts.default_s,
+                        help=f"Timeout in seconds (default: {cfg.timeouts.default_s})")
     parser.add_argument("-s", "--skip-model", action="store_true",
                         help="Skip Deep Research model selection")
     parser.add_argument("--headless", action="store_true",
@@ -693,8 +731,8 @@ Examples:
             log.info("Tip: Run with --login first to save your session.")
         sys.exit(1)
 
-    if len(query) > MAX_QUERY_CHARS:
-        log.error(f"Query too long: {len(query)} chars (max {MAX_QUERY_CHARS})")
+    if len(query) > cfg.content.max_query_chars:
+        log.error(f"Query too long: {len(query)} chars (max {cfg.content.max_query_chars})")
         sys.exit(1)
 
     asyncio.run(run(
