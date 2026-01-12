@@ -10,38 +10,65 @@ description: |
 
 Generate AI images styled with the Nano Banana Pro visual identity using Google Gemini API.
 
-## First-Time Setup
+## API Key Management
 
-**On first use, check configuration status:**
+Supports multiple API keys with named profiles.
+
+### List Keys
+
+```bash
+python scripts/generate_image.py keys list
+```
+
+### Add a Key
+
+```bash
+python scripts/generate_image.py keys add <name> <api-key>
+
+# Examples:
+python scripts/generate_image.py keys add default AIzaSy...
+python scripts/generate_image.py keys add work AIzaSy...
+python scripts/generate_image.py keys add personal AIzaSy...
+```
+
+### Remove a Key
+
+```bash
+python scripts/generate_image.py keys remove <name>
+```
+
+### Switch Active Key
+
+```bash
+python scripts/generate_image.py keys use <name>
+```
+
+### First-Time Setup
+
+On first use, if no keys configured:
 
 ```bash
 python scripts/generate_image.py --check
 ```
 
-If NOT_CONFIGURED, the script will display setup instructions. Ask the user to:
-
-1. Go to https://aistudio.google.com/apikey
-2. Create an API key (starts with `AIza...`)
-3. Provide the key to you
-
-**Once user provides the key, save it:**
+Shows setup instructions. Once user provides key:
 
 ```bash
-python scripts/generate_image.py --setup --api-key "AIzaSy..."
+python scripts/generate_image.py keys add default "AIzaSy..."
 ```
 
-The key is stored securely in `~/.config/nano-banana-image/config.json`.
+## Image Generation
 
-## Quick Start
+### Quick Start
 
 ```bash
 python scripts/generate_image.py "a futuristic productivity device" output.png
 ```
 
-## Usage
+### Full Usage
 
 ```bash
-python scripts/generate_image.py "<description>" [output_path] [--aspect RATIO] [--model MODEL]
+python scripts/generate_image.py "<description>" [output_path] [options]
 ```
 
 | Argument | Description | Default |
@@ -50,14 +77,13 @@ python scripts/generate_image.py "<description>" [output_path] [--aspect RATIO] 
 | `output_path` | Output file path | `output.png` |
 | `--aspect` | Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4 | `16:9` |
 | `--model` | Gemini model to use | `gemini-3-pro-image-preview` |
+| `--key` | Use specific key by name | active key |
 
-## Configuration Commands
+### Use Specific Key for Generation
 
-| Command | Description |
-|---------|-------------|
-| `--check` | Check if API key is configured |
-| `--setup --api-key "KEY"` | Save API key to config file |
-| `--setup --api-key "KEY" --project-id "ID"` | Save with optional project ID |
+```bash
+python scripts/generate_image.py "prompt" output.png --key work
+```
 
 ## Style Applied
 
@@ -84,9 +110,10 @@ python scripts/generate_image.py "abstract geometric pattern with circles and li
 python scripts/generate_image.py "minimalist sync icon with two rotating arrows" icon.png --aspect 1:1
 ```
 
-**Presentation Hero Image**
+**Using Different Keys**
 ```bash
-python scripts/generate_image.py "professional holding a tiny glowing device, dark environment" hero.png
+# Use work key for this generation
+python scripts/generate_image.py "presentation hero image" hero.png --key work
 ```
 
 ## Prompt Tips
@@ -118,15 +145,26 @@ The Nano Banana style (colors, aesthetic) is automatically added.
 
 | Error | Solution |
 |-------|----------|
-| `STATUS: NOT_CONFIGURED` | Run `--check` and follow setup instructions |
-| `STATUS: INVALID_KEY` | Re-run `--setup` with correct key |
-| `HTTP 403` | Key invalid or lacks permissions, verify at aistudio.google.com |
+| `No API keys configured` | Run `keys add <name> <key>` |
+| `Key 'xxx' not found` | Run `keys list` to see available keys |
+| `HTTP 403` | Key invalid or lacks permissions |
 | `HTTP 429` | Rate limited, wait and retry |
 | `No image generated` | Rephrase prompt, avoid restricted content |
 
 ## Security
 
-- API key stored in `~/.config/nano-banana-image/config.json`
+- Keys stored in `~/.config/nano-banana-image/config.json`
 - File permissions set to 600 (owner read/write only)
-- Key never logged or displayed in full
+- Keys never logged or displayed in full (masked as `AIza...xxxx`)
 - Fallback to `GEMINI_API_KEY` environment variable supported
+
+## Command Reference
+
+| Command | Description |
+|---------|-------------|
+| `keys list` | List all configured API keys |
+| `keys add <name> <key>` | Add a new API key |
+| `keys remove <name>` | Remove an API key |
+| `keys use <name>` | Set active API key |
+| `--check` | Check configuration status |
+| `--key <name>` | Use specific key for generation |
