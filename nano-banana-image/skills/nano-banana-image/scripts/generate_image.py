@@ -413,7 +413,37 @@ def generate_image(prompt: str, output_path: str, aspect_ratio: str = "16:9",
 # =============================================================================
 
 
+def handle_keys_command(args: list) -> None:
+    """Handle 'keys' subcommand."""
+    if not args or args[0] == "list":
+        keys_list()
+    elif args[0] == "add":
+        if len(args) < 3:
+            print("Usage: keys add <name> <api-key>")
+            sys.exit(1)
+        keys_add(args[1], args[2])
+    elif args[0] == "remove":
+        if len(args) < 2:
+            print("Usage: keys remove <name>")
+            sys.exit(1)
+        keys_remove(args[1])
+    elif args[0] == "use":
+        if len(args) < 2:
+            print("Usage: keys use <name>")
+            sys.exit(1)
+        keys_use(args[1])
+    else:
+        print(f"Unknown keys command: {args[0]}")
+        print("Available: list, add, remove, use")
+        sys.exit(1)
+
+
 def main():
+    # Handle 'keys' subcommand manually (before argparse)
+    if len(sys.argv) > 1 and sys.argv[1] == "keys":
+        handle_keys_command(sys.argv[2:])
+        return
+
     parser = argparse.ArgumentParser(
         description="Generate Nano Banana Pro styled images using Gemini API",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -438,28 +468,6 @@ Configuration:
 """
     )
 
-    # Subcommand for key management
-    subparsers = parser.add_subparsers(dest="command", help="Commands")
-
-    keys_parser = subparsers.add_parser("keys", help="Manage API keys")
-    keys_subparsers = keys_parser.add_subparsers(dest="keys_command")
-
-    # keys list
-    keys_subparsers.add_parser("list", help="List all API keys")
-
-    # keys add
-    keys_add_parser = keys_subparsers.add_parser("add", help="Add a new API key")
-    keys_add_parser.add_argument("name", help="Name for the key (e.g., 'work', 'personal')")
-    keys_add_parser.add_argument("api_key", help="Gemini API key")
-
-    # keys remove
-    keys_remove_parser = keys_subparsers.add_parser("remove", help="Remove an API key")
-    keys_remove_parser.add_argument("name", help="Name of the key to remove")
-
-    # keys use
-    keys_use_parser = keys_subparsers.add_parser("use", help="Set active API key")
-    keys_use_parser.add_argument("name", help="Name of the key to activate")
-
     # Legacy setup/check commands
     parser.add_argument("--setup", action="store_true", help="Setup mode (legacy)")
     parser.add_argument("--check", action="store_true", help="Check configuration")
@@ -474,20 +482,6 @@ Configuration:
     parser.add_argument("--key", dest="key_name", help="Use specific key by name")
 
     args = parser.parse_args()
-
-    # Handle keys subcommand
-    if args.command == "keys":
-        if args.keys_command == "list":
-            keys_list()
-        elif args.keys_command == "add":
-            keys_add(args.name, args.api_key)
-        elif args.keys_command == "remove":
-            keys_remove(args.name)
-        elif args.keys_command == "use":
-            keys_use(args.name)
-        else:
-            keys_parser.print_help()
-        return
 
     # Handle legacy setup command
     if args.setup:
