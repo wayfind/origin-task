@@ -199,7 +199,65 @@ Task(
 )
 ```
 
-#### Step 3: 填充结果到 slide-md
+#### Step 3: 🆕 保存研究结果到文件（P0 强制）
+
+> **⚠️ 关键改动**: 研究结果必须持久化到文件，渲染器会验证！
+
+```bash
+# 目录结构
+output/project-name/
+├── skeleton.yaml
+├── research_results/        # 🆕 必须存在
+│   ├── r01.md              # 研究结果内容
+│   ├── r01.meta.json       # 元数据（可选但推荐）
+│   ├── r02.md
+│   └── ...
+└── slides/
+    └── *.slide.md
+```
+
+**保存 research_results/{task_id}.md:**
+
+```markdown
+# Research Result: r01
+Generated: 2026-01-12T10:30:00Z
+Skill: deep-research
+
+---
+
+## 2025年股价表现
+- 年初价格: $248.42
+- 年末价格: $445.03
+- 涨跌幅: +79.1%
+
+### 关键事件
+1. Q1: FSD V12 发布，股价上涨 15%
+2. Q3: Robotaxi 发布会，股价创新高
+3. Q4: 马斯克政治参与引发波动
+
+---
+
+*来源: Yahoo Finance, Reuters*
+*研究时间: 2026-01-12*
+```
+
+**保存 research_results/{task_id}.meta.json (可选):**
+
+```json
+{
+  "task_id": "r01",
+  "skill": "deep-research",
+  "query_hash": "abc123...",
+  "executed_at": "2026-01-12T10:30:00Z",
+  "duration_seconds": 45,
+  "source_count": 5,
+  "content_length": 1234
+}
+```
+
+#### Step 4: 填充结果到 slide-md
+
+从 `research_results/{task_id}.md` 读取内容填充：
 
 ```markdown
 <!-- @RESEARCH: r01 -->
@@ -215,6 +273,39 @@ Task(
 
 *来源: Yahoo Finance, Reuters*
 <!-- @/RESEARCH -->
+```
+
+### 🚫 渲染阻断机制（P0）
+
+> **render.js 会在渲染前验证 research_results/ 目录！**
+
+```
+如果 skeleton.yaml 定义了 research_tasks:
+  但 research_results/ 目录不存在
+  或 必需任务 (required: true) 没有对应的 .md 文件
+
+则渲染器拒绝执行并输出：
+
+╔════════════════════════════════════════════════════════════╗
+║          ARTIFACT VALIDATION FAILED                        ║
+╚════════════════════════════════════════════════════════════╝
+
+🚫 RENDER BLOCKED: research_results/ 目录不存在
+
+skeleton.yaml 定义了 5 个必需研究任务：
+  - [r01] Tesla TSLA stock performance in 2025...
+  - [r02] Tesla 2026 bullish catalysts...
+  ...
+
+解决方法：
+  1. 使用 /ppt-enrich 执行研究任务
+  2. 确保每个任务都调用 deep-research skill
+  3. 将结果保存为 research_results/{task_id}.md
+```
+
+**绕过方法（不推荐）：**
+```bash
+node render.js ./slides/ --skip-artifact-check
 ```
 
 ### 研究任务类型

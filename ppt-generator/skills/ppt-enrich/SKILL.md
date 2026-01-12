@@ -78,9 +78,45 @@ Task(
 )
 ```
 
-### Step 4: 填充到 slide-md
+### Step 4: 🆕 保存研究结果到文件（P0 强制）
 
-使用 `<!-- @RESEARCH: id -->` 标记：
+> **⚠️ 关键**: 研究结果必须持久化，渲染器会验证！
+
+**目录结构：**
+```bash
+output/project-name/
+├── skeleton.yaml
+├── research_results/        # 🆕 必须创建
+│   ├── r01.md              # 研究结果
+│   ├── r01.meta.json       # 元数据（推荐）
+│   └── ...
+└── slides/
+```
+
+**保存结果 - 使用 Write 工具：**
+```python
+# 保存 research_results/{task_id}.md
+Write(
+    file_path=f"{project_dir}/research_results/{task_id}.md",
+    content=f"""# Research Result: {task_id}
+Generated: {datetime.now().isoformat()}
+Skill: deep-research
+
+---
+
+{research_result}
+
+---
+
+*来源: [sources]*
+*研究时间: {date}*
+"""
+)
+```
+
+### Step 5: 填充到 slide-md
+
+从 `research_results/{task_id}.md` 读取后填充：
 
 ```markdown
 # 2025年股价回顾
@@ -92,6 +128,21 @@ Task(
 
 *来源: Yahoo Finance, 2025-12*
 <!-- @/RESEARCH -->
+```
+
+### 🚫 渲染器验证（P0）
+
+> **如果不保存 research_results/，渲染将被阻断！**
+
+```
+render.js 验证逻辑：
+1. 读取 skeleton.yaml 中的 research_tasks
+2. 检查 research_results/ 目录是否存在
+3. 检查每个 required: true 的任务是否有对应 .md 文件
+4. 任何缺失 → 拒绝渲染，输出错误
+
+绕过方法（不推荐）：
+  node render.js ./slides/ --skip-artifact-check
 ```
 
 ### 🚨 强制规则

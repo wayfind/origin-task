@@ -14,6 +14,7 @@ const path = require('path');
 const { SlideParser } = require('./slide-parser');
 const { PPTXRenderer } = require('./pptx-renderer');
 const { loadTheme, listThemes } = require('./theme-loader');
+const { ArtifactValidator } = require('./artifact-validator');
 
 class PPTRender {
     constructor(options = {}) {
@@ -22,6 +23,8 @@ class PPTRender {
             output: 'output.pptx',
             verbose: false,
             validate: false,
+            skipArtifactCheck: false,  // P0: 跳过 artifact 检查（不推荐）
+            warnOnlyArtifact: false,   // P0: artifact 问题仅警告不阻断
             title: 'Presentation',
             author: 'Claude Code',
             ...options
@@ -40,6 +43,25 @@ class PPTRender {
     async renderDirectory(inputDir, outputPath) {
         this.log(`Input: ${inputDir}`);
         this.log(`Theme: ${this.options.theme}`);
+
+        // P0: Artifact 验证 - 阻断虚假完成
+        if (!this.options.skipArtifactCheck) {
+            // 从 slides 目录推导项目目录
+            // e.g., output/tesla-2026-report/slides → output/tesla-2026-report
+            const normalizedInput = path.resolve(inputDir);
+            const projectDir = normalizedInput.endsWith('/slides') || normalizedInput.endsWith('\\slides')
+                ? path.dirname(normalizedInput)
+                : path.dirname(normalizedInput);  // fallback: 父目录
+            this.log(`Project dir: ${projectDir}`);
+            const validationResult = this._validateArtifacts(projectDir);
+
+            if (!validationResult.valid) {
+                throw new Error(
+                    `Artifact validation failed. Use --skip-artifact-check to bypass (not recommended).\n` +
+                    `Run /ppt-enrich to execute research tasks first.`
+                );
+            }
+        }
 
         // 解析所有 slides
         const slides = this.parser.parseDirectory(inputDir);
@@ -111,6 +133,24 @@ class PPTRender {
             console.log(`[ppt-render] ${message}`);
         }
     }
+
+    /**
+     * P0: 验证项目 artifacts
+     * @param {string} projectDir - 项目目录
+     * @returns {{ valid: boolean, errors: string[], warnings: string[] }}
+     */
+    _validateArtifacts(projectDir) {
+        const validator = new ArtifactValidator({
+            strict: true,
+            warnOnly: this.options.warnOnlyArtifact,
+            verbose: this.options.verbose
+        });
+
+        const result = validator.validate(projectDir);
+        validator.printReport(result);
+
+        return result;
+    }
 }
 
 // CLI
@@ -121,6 +161,8 @@ function parseArgs(args) {
         theme: 'corporate-light',
         verbose: false,
         validate: false,
+        skipArtifactCheck: false,
+        warnOnlyArtifact: false,
         help: false,
         listThemes: false
     };
@@ -134,6 +176,10 @@ function parseArgs(args) {
             options.verbose = true;
         } else if (arg === '--validate') {
             options.validate = true;
+        } else if (arg === '--skip-artifact-check') {
+            options.skipArtifactCheck = true;
+        } else if (arg === '--warn-only-artifact') {
+            options.warnOnlyArtifact = true;
         } else if (arg === '--list-themes') {
             options.listThemes = true;
         } else if (arg === '-o' || arg === '--output') {
@@ -166,11 +212,19 @@ Options:
   --list-themes            List available themes
   -h, --help               Show this help message
 
+Artifact Validation (P0):
+  --skip-artifact-check    Skip research artifact validation (NOT RECOMMENDED)
+  --warn-only-artifact     Warn on missing artifacts but continue rendering
+
 Examples:
   node render.js ./slides/ -o presentation.pptx
   node render.js ./slides/ --theme nano-banana-pro -o dark-theme.pptx
   node render.js intro.slide.md -o intro.pptx
   node render.js --list-themes
+
+Note: By default, render will BLOCK if skeleton.yaml defines research_tasks
+      but research_results/ directory is missing or incomplete.
+      This ensures research is actually executed, not just declared.
 `);
 }
 

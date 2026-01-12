@@ -55,3 +55,6 @@ secrets/
 
 # Test outputs
 test_output/
+
+# Local Claude config
+.claude/
