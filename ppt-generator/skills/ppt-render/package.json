@@ -8,7 +8,7 @@
   },
   "scripts": {
     "render": "node scripts/render.js",
-    "test": "node scripts/render.js --help"
+    "test": "node test/test.js"
   },
   "dependencies": {
     "pptxgenjs": "^3.12.0",

@@ -154,7 +154,7 @@ class PPTOrchestrator:
             str(skeleton_path),
             '-o', str(slides_dir),
             '-c', str(intent.context_dir or work_dir),
-            '--research-mode', 'mock' if not intent.require_research else 'mock'  # TODO: support browser/api
+            '--research-mode', 'api' if intent.require_research else 'mock'
         ]
 
         if self.verbose:
