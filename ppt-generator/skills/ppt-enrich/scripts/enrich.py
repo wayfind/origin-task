@@ -150,7 +150,7 @@ class PPTEnrich:
             try:
                 with open(cache_path, 'r', encoding='utf-8') as f:
                     return json.load(f)
-            except:
+            except (json.JSONDecodeError, IOError, OSError):
                 pass
         return None
 

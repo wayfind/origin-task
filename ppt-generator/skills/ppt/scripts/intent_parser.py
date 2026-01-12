@@ -189,7 +189,7 @@ class IntentParser:
                 stages = ['outline', 'enrich', 'render']
                 idx = stages.index(stage)
                 return stages[min(idx + 1, len(stages) - 1)]
-        except:
+        except (json.JSONDecodeError, IOError, OSError, ValueError, KeyError):
             return 'outline'
 
     def get_summary(self, intent: PPTIntent) -> str:

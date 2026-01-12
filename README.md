@@ -184,6 +184,11 @@ Modular PPT generation pipeline: outline → enrich → render.
 | `corporate-light` | Professional white background |
 | `nano-banana-pro` | Dark tech aesthetic |
 
+### Known Limitations
+
+- `--research-mode api` and `--research-mode browser` currently fall back to mock data
+- Real research integration planned for future release
+
 ---
 
 ## Uninstall
