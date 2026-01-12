@@ -1,0 +1,18 @@
+{
+  "name": "nano-banana-image",
+  "version": "1.0.0",
+  "description": "Generate images in Nano Banana Pro visual style using Gemini API - dark tech aesthetic with gold/teal accents",
+  "author": {
+    "name": "wayfind"
+  },
+  "repository": "https://github.com/wayfind/origin-task.git",
+  "license": "MIT OR Apache-2.0",
+  "keywords": [
+    "image", "generate", "gemini", "ai", "nano-banana",
+    "dark-mode", "tech", "aesthetic", "visual", "design",
+    "图片", "生成", "配图", "设计"
+  ],
+  "skills": [
+    "./skills/nano-banana-image"
+  ]
+}

@@ -1,0 +1,348 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/skeleton.schema.json",
+  "title": "PPT Skeleton Schema",
+  "description": "Schema for validating PPT skeleton YAML files",
+  "type": "object",
+  "required": ["meta", "audience", "presentation", "structure"],
+  "properties": {
+    "meta": {
+      "type": "object",
+      "required": ["title", "version"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "PPT主标题",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "description": "骨架版本",
+          "pattern": "^\\d+\\.\\d+$"
+        },
+        "subtitle": {
+          "type": "string",
+          "description": "副标题"
+        },
+        "author": {
+          "type": "string",
+          "description": "作者/讲师"
+        },
+        "date": {
+          "type": "string",
+          "description": "日期",
+          "pattern": "^\\d{4}(-\\d{2})?(-\\d{2})?$"
+        },
+        "language": {
+          "type": "string",
+          "description": "语言代码",
+          "default": "zh-CN"
+        },
+        "generated_by": {
+          "type": "string",
+          "description": "生成工具标识"
+        },
+        "generated_at": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO 8601 时间戳"
+        }
+      }
+    },
+    "audience": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["executives", "managers", "professionals", "general"],
+          "description": "受众类型"
+        },
+        "size": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "预计人数"
+        },
+        "industries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name"],
+            "properties": {
+              "name": {
+                "type": "string",
+                "description": "行业名称"
+              },
+              "percentage": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100,
+                "description": "占比"
+              },
+              "companies": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "代表企业"
+              }
+            }
+          }
+        },
+        "pain_points": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "受众关心的问题"
+        },
+        "knowledge_level": {
+          "type": "string",
+          "enum": ["novice", "intermediate", "expert"],
+          "description": "知识水平"
+        }
+      }
+    },
+    "presentation": {
+      "type": "object",
+      "required": ["duration", "style"],
+      "properties": {
+        "duration": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "总时长（分钟）"
+        },
+        "duration_flexible": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否可调整"
+        },
+        "occasion": {
+          "type": "string",
+          "enum": ["training", "pitch", "conference", "workshop", "marketing"],
+          "description": "场合类型"
+        },
+        "style": {
+          "type": "string",
+          "description": "样式名称",
+          "examples": ["nano-banana-pro", "corporate-light"]
+        },
+        "output_formats": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["pptx", "html", "pdf"]
+          },
+          "description": "输出格式"
+        }
+      }
+    },
+    "structure": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/section"
+      },
+      "description": "内容结构"
+    },
+    "global_research": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/research_need"
+      },
+      "description": "全局研究需求"
+    },
+    "constraints": {
+      "type": "object",
+      "properties": {
+        "content": {
+          "type": "object",
+          "properties": {
+            "max_slides": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "最大页数"
+            },
+            "max_words_per_slide": {
+              "type": "integer",
+              "minimum": 1,
+              "description": "每页最大字数"
+            },
+            "require_sources": {
+              "type": "boolean",
+              "description": "是否必须标注来源"
+            }
+          }
+        },
+        "visual": {
+          "type": "object",
+          "properties": {
+            "logo_path": {
+              "type": "string",
+              "description": "Logo文件路径"
+            },
+            "color_override": {
+              "type": "object",
+              "description": "颜色覆盖"
+            },
+            "font_override": {
+              "type": "object",
+              "description": "字体覆盖"
+            }
+          }
+        },
+        "brand": {
+          "type": "object",
+          "properties": {
+            "company_name": {
+              "type": "string"
+            },
+            "tagline": {
+              "type": "string"
+            },
+            "disclaimer": {
+              "type": "string",
+              "description": "免责声明"
+            }
+          }
+        }
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "description": "自定义扩展字段"
+    }
+  },
+  "$defs": {
+    "section": {
+      "type": "object",
+      "required": ["id", "title", "type"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "唯一标识",
+          "pattern": "^[a-zA-Z0-9_-]+$"
+        },
+        "title": {
+          "type": "string",
+          "description": "章节标题",
+          "minLength": 1
+        },
+        "type": {
+          "type": "string",
+          "enum": ["opening", "content", "case-study", "framework", "closing", "transition"],
+          "description": "章节类型"
+        },
+        "duration": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "时长（分钟）"
+        },
+        "content_hints": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "内容要点提示"
+        },
+        "slides_estimate": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "预估页数"
+        },
+        "subsections": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "title"],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "content_hints": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        },
+        "research_needs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/research_need"
+          }
+        },
+        "interactions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["type", "prompt"],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": ["poll", "question", "discussion", "exercise"]
+              },
+              "prompt": {
+                "type": "string",
+                "description": "交互提示语"
+              },
+              "duration": {
+                "type": "integer",
+                "description": "预计时长（秒）"
+              }
+            }
+          }
+        }
+      }
+    },
+    "research_need": {
+      "type": "object",
+      "required": ["type", "query"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["case_study", "statistics", "quote", "trend", "comparison"],
+          "description": "研究类型"
+        },
+        "query": {
+          "type": "string",
+          "description": "研究查询",
+          "minLength": 1
+        },
+        "priority": {
+          "type": "string",
+          "enum": ["high", "medium", "low"],
+          "default": "medium"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "需要的数量"
+        },
+        "constraints": {
+          "type": "object",
+          "properties": {
+            "industry": {
+              "type": "string",
+              "description": "行业限制"
+            },
+            "region": {
+              "type": "string",
+              "description": "地区限制"
+            },
+            "time_range": {
+              "type": "string",
+              "description": "时间范围"
+            },
+            "source_type": {
+              "type": "string",
+              "description": "来源类型"
+            }
+          }
+        },
+        "apply_to": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "应用到的章节ID"
+        }
+      }
+    }
+  }
+}

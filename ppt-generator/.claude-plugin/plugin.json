@@ -1,0 +1,22 @@
+{
+  "name": "ppt-generator",
+  "version": "2.0.0",
+  "description": "Modular PPT generation pipeline - Transform documents to professional PPTX with outline/enrich/render stages",
+  "author": {
+    "name": "wayfind"
+  },
+  "repository": "https://github.com/wayfind/origin-task.git",
+  "license": "MIT OR Apache-2.0",
+  "keywords": [
+    "ppt", "pptx", "powerpoint", "presentation", "slides", "slide",
+    "outline", "skeleton", "render", "enrich",
+    "markdown", "document", "generation", "pipeline",
+    "PPT", "演示", "幻灯片", "演示文稿", "骨架", "渲染"
+  ],
+  "skills": [
+    "./skills/ppt",
+    "./skills/ppt-outline",
+    "./skills/ppt-enrich",
+    "./skills/ppt-render"
+  ]
+}

@@ -16,6 +16,28 @@
       "author": {
         "name": "wayfind"
       }
+    },
+    {
+      "name": "ppt-generator",
+      "source": "./ppt-generator",
+      "description": "Modular PPT generation pipeline - Transform documents to professional PPTX with outline/enrich/render stages",
+      "version": "2.0.0",
+      "category": "productivity",
+      "keywords": ["ppt", "pptx", "powerpoint", "presentation", "slides", "outline", "render", "enrich", "markdown", "document", "PPT", "演示", "幻灯片"],
+      "author": {
+        "name": "wayfind"
+      }
+    },
+    {
+      "name": "nano-banana-image",
+      "source": "./nano-banana-image",
+      "description": "Generate images in Nano Banana Pro visual style using Gemini API - dark tech aesthetic",
+      "version": "1.0.0",
+      "category": "design",
+      "keywords": ["image", "generate", "gemini", "ai", "nano-banana", "dark-mode", "tech", "图片", "生成", "配图"],
+      "author": {
+        "name": "wayfind"
+      }
     }
   ]
 }

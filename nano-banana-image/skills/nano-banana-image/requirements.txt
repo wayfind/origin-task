@@ -1,0 +1,11 @@
+# Nano Banana Image Generator Dependencies
+# =========================================
+
+# No external dependencies required.
+# Uses only Python standard library:
+# - urllib.request (HTTP requests)
+# - base64 (image decoding)
+# - json (API payload)
+# - argparse (CLI)
+
+# Python >= 3.7 required

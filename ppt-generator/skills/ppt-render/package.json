@@ -1,0 +1,21 @@
+{
+  "name": "ppt-render",
+  "version": "1.0.0",
+  "description": "Render PPTX from Slide Markdown files",
+  "main": "scripts/render.js",
+  "bin": {
+    "ppt-render": "scripts/render.js"
+  },
+  "scripts": {
+    "render": "node scripts/render.js",
+    "test": "node scripts/render.js --help"
+  },
+  "dependencies": {
+    "pptxgenjs": "^3.12.0",
+    "yaml": "^2.3.0"
+  },
+  "devDependencies": {},
+  "keywords": ["pptx", "powerpoint", "slides", "markdown"],
+  "author": "Claude Code",
+  "license": "MIT"
+}
