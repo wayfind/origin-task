@@ -10,15 +10,27 @@ description: |
 
 Generate AI images styled with the Nano Banana Pro visual identity using Google Gemini API.
 
-## Prerequisites
+## First-Time Setup
 
-**IMPORTANT: Set your Gemini API key before using this skill.**
+**On first use, check configuration status:**
 
 ```bash
-export GEMINI_API_KEY="your-api-key-here"
+python scripts/generate_image.py --check
 ```
 
-Get your API key from: https://aistudio.google.com/apikey
+If NOT_CONFIGURED, the script will display setup instructions. Ask the user to:
+
+1. Go to https://aistudio.google.com/apikey
+2. Create an API key (starts with `AIza...`)
+3. Provide the key to you
+
+**Once user provides the key, save it:**
+
+```bash
+python scripts/generate_image.py --setup --api-key "AIzaSy..."
+```
+
+The key is stored securely in `~/.config/nano-banana-image/config.json`.
 
 ## Quick Start
 
@@ -38,6 +50,14 @@ python scripts/generate_image.py "<description>" [output_path] [--aspect RATIO] 
 | `output_path` | Output file path | `output.png` |
 | `--aspect` | Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4 | `16:9` |
 | `--model` | Gemini model to use | `gemini-3-pro-image-preview` |
+
+## Configuration Commands
+
+| Command | Description |
+|---------|-------------|
+| `--check` | Check if API key is configured |
+| `--setup --api-key "KEY"` | Save API key to config file |
+| `--setup --api-key "KEY" --project-id "ID"` | Save with optional project ID |
 
 ## Style Applied
 
@@ -98,7 +118,15 @@ The Nano Banana style (colors, aesthetic) is automatically added.
 
 | Error | Solution |
 |-------|----------|
-| `GEMINI_API_KEY not set` | Run `export GEMINI_API_KEY="your-key"` |
-| `HTTP 403` | Check API key validity at aistudio.google.com |
+| `STATUS: NOT_CONFIGURED` | Run `--check` and follow setup instructions |
+| `STATUS: INVALID_KEY` | Re-run `--setup` with correct key |
+| `HTTP 403` | Key invalid or lacks permissions, verify at aistudio.google.com |
 | `HTTP 429` | Rate limited, wait and retry |
 | `No image generated` | Rephrase prompt, avoid restricted content |
+
+## Security
+
+- API key stored in `~/.config/nano-banana-image/config.json`
+- File permissions set to 600 (owner read/write only)
+- Key never logged or displayed in full
+- Fallback to `GEMINI_API_KEY` environment variable supported

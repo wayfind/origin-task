@@ -6,8 +6,9 @@ Generates images using Gemini API with Nano Banana Pro style.
 Usage:
     python generate_image.py "your description" [output.png] [--aspect 16:9]
 
-Environment:
-    GEMINI_API_KEY - Required. Get from https://aistudio.google.com/apikey
+Configuration:
+    First run: python generate_image.py --setup --api-key "YOUR_KEY"
+    Check:     python generate_image.py --check
 """
 
 import argparse
@@ -17,13 +18,17 @@ import os
 import sys
 import urllib.request
 import urllib.error
+from pathlib import Path
 
 # =============================================================================
 # Constants
 # =============================================================================
 
+# Config file location: ~/.config/nano-banana-image/config.json
+CONFIG_DIR = Path.home() / ".config" / "nano-banana-image"
+CONFIG_FILE = CONFIG_DIR / "config.json"
+
 # Gemini model for image generation
-# gemini-3-pro-image-preview is a new model with native image generation
 DEFAULT_MODEL = "gemini-3-pro-image-preview"
 
 # Aspect ratio dimensions
@@ -46,22 +51,108 @@ Style guidelines for the image:
 """
 
 # =============================================================================
-# Core Functions
+# Configuration Management
 # =============================================================================
 
 
-def get_api_key() -> str:
-    """Get API key from environment variable."""
-    api_key = os.environ.get("GEMINI_API_KEY")
+def load_config() -> dict:
+    """Load configuration from file."""
+    if not CONFIG_FILE.exists():
+        return {}
+    try:
+        return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, IOError):
+        return {}
+
+
+def save_config(config: dict) -> None:
+    """Save configuration to file."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    CONFIG_FILE.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    # Secure permissions (owner read/write only)
+    try:
+        CONFIG_FILE.chmod(0o600)
+    except OSError:
+        pass  # Windows doesn't support chmod the same way
+
+
+def setup_config(api_key: str, project_id: str = None) -> None:
+    """Setup API key and optional project ID."""
+    config = load_config()
+    config["gemini_api_key"] = api_key
+    if project_id:
+        config["project_id"] = project_id
+    save_config(config)
+    print(f"OK: Configuration saved to {CONFIG_FILE}")
+
+
+def check_config() -> bool:
+    """Check if configuration exists and is valid."""
+    config = load_config()
+    api_key = config.get("gemini_api_key", "")
+
     if not api_key:
-        print("ERROR: GEMINI_API_KEY environment variable not set")
+        print("STATUS: NOT_CONFIGURED")
         print("")
-        print("To fix:")
-        print("  1. Get your API key from: https://aistudio.google.com/apikey")
-        print("  2. Set the environment variable:")
-        print('     export GEMINI_API_KEY="your-api-key-here"')
+        print("=" * 60)
+        print("NANO BANANA IMAGE - FIRST TIME SETUP REQUIRED")
+        print("=" * 60)
+        print("")
+        print("To use this skill, you need a Gemini API key.")
+        print("")
+        print("Steps for user:")
+        print("  1. Go to: https://aistudio.google.com/apikey")
+        print("  2. Click 'Create API Key'")
+        print("  3. Copy the key (starts with 'AIza...')")
+        print("  4. Provide the key to me")
+        print("")
+        print("Optional: If using a specific GCP project, also provide the Project ID.")
+        print("")
+        print("Once you have the key, tell me:")
+        print('  "My Gemini API key is: AIza..."')
+        print("")
+        print("=" * 60)
+        return False
+
+    # Validate key format (basic check)
+    if not api_key.startswith("AIza") or len(api_key) < 30:
+        print("STATUS: INVALID_KEY")
+        print(f"The stored API key appears invalid: {api_key[:10]}...")
+        print("Please provide a valid Gemini API key.")
+        return False
+
+    print("STATUS: CONFIGURED")
+    print(f"Config file: {CONFIG_FILE}")
+    print(f"API key: {api_key[:10]}...{api_key[-4:]}")
+    project_id = config.get("project_id")
+    if project_id:
+        print(f"Project ID: {project_id}")
+    return True
+
+
+def get_api_key() -> str:
+    """Get API key from config file, with fallback to environment variable."""
+    # First try config file
+    config = load_config()
+    api_key = config.get("gemini_api_key")
+
+    # Fallback to environment variable for backward compatibility
+    if not api_key:
+        api_key = os.environ.get("GEMINI_API_KEY")
+
+    if not api_key:
+        print("ERROR: Gemini API key not configured")
+        print("")
+        print("Run: python generate_image.py --check")
+        print("to see setup instructions.")
         sys.exit(1)
+
     return api_key
+
+
+# =============================================================================
+# Image Generation
+# =============================================================================
 
 
 def generate_image(prompt: str, output_path: str, aspect_ratio: str = "16:9", model: str = DEFAULT_MODEL) -> str:
@@ -149,6 +240,9 @@ def generate_image(prompt: str, output_path: str, aspect_ratio: str = "16:9", mo
     except urllib.error.HTTPError as e:
         error_body = e.read().decode("utf-8") if e.fp else ""
         print(f"ERROR: HTTP {e.code} - {e.reason}")
+        if e.code == 403:
+            print("The API key may be invalid or lack permissions.")
+            print("Please verify your key at: https://aistudio.google.com/apikey")
         print(f"Details: {error_body[:500]}")
         sys.exit(1)
     except urllib.error.URLError as e:
@@ -159,22 +253,57 @@ def generate_image(prompt: str, output_path: str, aspect_ratio: str = "16:9", mo
         sys.exit(1)
 
 
+# =============================================================================
+# CLI
+# =============================================================================
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Generate Nano Banana Pro styled images using Gemini API",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  # First time setup (run by Claude after user provides key)
+  %(prog)s --setup --api-key "AIzaSy..."
+
+  # Check configuration status
+  %(prog)s --check
+
+  # Generate images
   %(prog)s "a futuristic productivity device" product.png
   %(prog)s "abstract geometric pattern" bg.png --aspect 16:9
   %(prog)s "minimalist sync icon" icon.png --aspect 1:1
 
-Environment:
-  GEMINI_API_KEY    Required. Get from https://aistudio.google.com/apikey
+Configuration:
+  API key is stored in: ~/.config/nano-banana-image/config.json
 """
     )
+
+    # Setup/check commands
+    parser.add_argument(
+        "--setup",
+        action="store_true",
+        help="Setup mode: save API key to config file"
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Check if API key is configured"
+    )
+    parser.add_argument(
+        "--api-key",
+        help="Gemini API key (used with --setup)"
+    )
+    parser.add_argument(
+        "--project-id",
+        help="Optional GCP Project ID (used with --setup)"
+    )
+
+    # Generation arguments
     parser.add_argument(
         "prompt",
+        nargs="?",
         help="Description of the image to generate"
     )
     parser.add_argument(
@@ -196,6 +325,28 @@ Environment:
     )
 
     args = parser.parse_args()
+
+    # Handle setup command
+    if args.setup:
+        if not args.api_key:
+            print("ERROR: --api-key is required with --setup")
+            print("Usage: python generate_image.py --setup --api-key 'AIzaSy...'")
+            sys.exit(1)
+        setup_config(args.api_key, args.project_id)
+        return
+
+    # Handle check command
+    if args.check:
+        sys.exit(0 if check_config() else 1)
+
+    # Generate image requires prompt
+    if not args.prompt:
+        # No prompt provided, check config and show help
+        if not check_config():
+            sys.exit(1)
+        parser.print_help()
+        sys.exit(0)
+
     generate_image(args.prompt, args.output, args.aspect, args.model)
 
 
