@@ -10,6 +10,102 @@ description: |
 
 > 从 skeleton.yaml 生成完整的 slide-md 内容文件
 
+---
+
+## 🎨 设计工具箱 (Design Toolkit)
+
+> **重要**: 生成 slide-md 时，**必须**充分利用以下设计工具，确保输出美观大方、专业精致。
+
+### 布局选择决策表
+
+| 内容特征 | 推荐布局 | 原因 |
+|----------|----------|------|
+| 封面、章节标题、结尾 | `title-only` | 视觉冲击力强，突出主题 |
+| 3-5 个要点/观点 | `bullets` | 清晰易读，经典布局 |
+| 对比内容、优劣势、AB 测试 | `two-column` | 左右对称，对比鲜明 |
+| 多案例、多特性并列 | `three-cards` | 卡片并排，信息独立 |
+| 数据密集、多维度比较 | `table` | 行列整齐，信息密集 |
+| 名人名言、重点强调 | `quote` | 突出显示，吸引注意 |
+| 流程、时间线、层级关系 | `chart` | 可视化强，逻辑清晰 |
+
+### 图表模板选择
+
+| 内容类型 | 图表模板 | 语法 |
+|----------|----------|------|
+| 步骤、阶段、流程 | `process-flow` | `::: chart template: process-flow` |
+| 传统 vs 现代、优劣势 | `comparison` | `::: chart template: comparison` |
+| 历史、规划、路线图 | `timeline` | `::: chart template: timeline` |
+| 层级、架构、分类 | `pyramid` | `::: chart template: pyramid` |
+| 核心+扩展元素 | `circle-group` | `::: chart template: circle-group` |
+| 复杂自定义 | Mermaid 代码 | ` ```mermaid ` 块 |
+
+### 配图位置策略
+
+| 幻灯片类型 | 图片位置 | 比例 | 效果 |
+|------------|----------|------|------|
+| 封面页 | `cover` | 16:9 | 全屏主视觉，冲击力强 |
+| 章节标题页 | `section` | 16:9 | 背景装饰，主题突出 |
+| 内容页 | `side` | 4:3 | 侧边装饰，增加美感 |
+| 结尾页 | `ending` | 16:9 | 感谢装饰，温馨收尾 |
+
+### ⚠️ 内容决策原则（必读）
+
+**生成每张幻灯片前，依次检查：**
+
+1. **有数据？→ 可视化**
+   - ❌ 不要：堆砌数字文本
+   - ✅ 要：用图表、指标卡片展示
+
+2. **有对比？→ 双列或对比图**
+   - ❌ 不要：一段文字描述优劣势
+   - ✅ 要：`two-column` 或 `comparison` 图表
+
+3. **有流程？→ 流程图**
+   - ❌ 不要：1、2、3 编号列表
+   - ✅ 要：`process-flow` 图表
+
+4. **多案例？→ 卡片布局**
+   - ❌ 不要：连续段落
+   - ✅ 要：`three-cards` 并列展示
+
+5. **有金句？→ Quote 布局**
+   - ❌ 不要：混在正文中
+   - ✅ 要：单独 `quote` 布局突出
+
+6. **重要页面？→ 配装饰图**
+   - 封面、章节页、结尾页都应该有配图
+   - 使用 nano-banana-image 生成同色系图片
+
+### 示例：如何决策布局
+
+```
+输入内容: "AI转型分三个阶段：快赢期(0-6月)、价值放大期(6-18月)、全面转型期(18月+)"
+
+分析:
+- 有"阶段"关键词 → 流程/时间线
+- 有时间范围 → 适合 timeline 或 process-flow
+
+决策: 使用 chart 布局 + process-flow 模板
+
+输出:
+---
+slide:
+  layout: chart
+---
+# AI转型路线图
+
+::: chart
+template: process-flow
+title: AI转型三阶段
+steps:
+  - 快赢期 | 0-6月
+  - 价值放大 | 6-18月
+  - 全面转型 | 18月+
+:::
+```
+
+---
+
 ## 概述
 
 `/ppt-enrich` 是 PPT 生成流水线的内容填充环节，负责将结构骨架转换为具体的幻灯片内容。它会检测内容空缺、调用研究工具补充数据、整合案例，最终输出可直接渲染的 slide-md 文件。
@@ -197,6 +293,12 @@ AI质检系统
 ├── scripts/
 │   ├── enrich.py               # 主入口脚本
 │   ├── gap_detector.py         # 内容空缺检测
+│   ├── layout_advisor.py       # 🆕 布局决策顾问
+│   ├── research/               # 研究模块
+│   │   ├── __init__.py
+│   │   ├── deep_research.py    # Deep Research 集成
+│   │   ├── skill_discovery.py  # Skill 发现
+│   │   └── image_generator.py  # 🆕 配图生成器
 │   ├── research_runner.py      # 研究执行器
 │   ├── content_merger.py       # 内容整合器
 │   └── slidemd_writer.py       # slide-md 输出
@@ -220,6 +322,8 @@ AI质检系统
 
 ## API（编程使用）
 
+### 基础用法
+
 ```python
 from enrich import PPTEnrich
 
@@ -239,6 +343,65 @@ enricher.run_research()
 enricher.generate(output_dir='./slides/')
 ```
 
+### 布局顾问 API
+
+```python
+from layout_advisor import LayoutAdvisor, get_design_guidelines
+
+# 获取设计指南（供 LLM 参考）
+guidelines = get_design_guidelines()
+print(guidelines)  # 返回完整的设计决策参考文档
+
+# 分析内容并推荐布局
+advisor = LayoutAdvisor()
+
+content = """
+AI转型分三个阶段：
+1. 快赢期（0-6月）：试点项目
+2. 价值放大期（6-18月）：规模化
+3. 全面转型期（18月+）：文化变革
+"""
+
+decision = advisor.recommend_layout(
+    content=content,
+    slide_type='content',  # cover/section/content/ending
+    hints={'prefer_visual': True}
+)
+
+print(f"推荐布局: {decision.layout}")        # → LayoutType.CHART
+print(f"图表类型: {decision.chart_type}")    # → ChartType.PROCESS_FLOW
+print(f"配图位置: {decision.image_position}") # → None (内容页可选)
+print(f"推荐理由: {decision.rationale}")     # → "内容包含流程/阶段描述..."
+```
+
+### 配图生成 API
+
+```python
+from research.image_generator import ImageGeneratorManager, ImageRequest
+
+# 初始化管理器
+img_manager = ImageGeneratorManager(
+    output_dir=Path('./images'),
+    theme='nano-banana-pro'
+)
+
+# 检查 nano-banana-image 是否可用
+if img_manager.is_available():
+    # 为骨架批量生成配图
+    skeleton = {...}  # skeleton.yaml 内容
+    image_paths = img_manager.generate_for_skeleton(skeleton)
+    # → {'cover': Path('./images/cover.png'), '01': Path('./images/01-section.png'), ...}
+
+    # 单张图片生成
+    request = ImageRequest(
+        prompt="AI technology abstract visualization",
+        position='cover',
+        aspect_ratio='16:9',
+        style_hints=['tech', 'futuristic', 'dark theme']
+    )
+    result = img_manager.adapter.generate_image(request, Path('./images/custom.png'))
+```
+
 ## 与其他 Skill 的关系
 
 | Skill | 关系 |
@@ -247,11 +410,13 @@ enricher.generate(output_dir='./slides/')
 | `/ppt-render` | 下游：接收 slide-md，生成 PPTX |
 | `/ppt` | 编排器：协调整个流程 |
 | `openai-deep-research` | 依赖：执行研究查询 |
+| `nano-banana-image` | 依赖：生成同色系装饰图 |
 
 ## 版本历史
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 1.1.0 | 2026-01-12 | 添加 Layout Advisor 和配图生成 |
 | 1.0.0 | 2026-01-12 | 初版 |
 
 ## 相关文档

@@ -10,6 +10,23 @@ description: |
 
 > 从 Slide Markdown 文件渲染生成 PPTX 演示文稿
 
+---
+
+## 🎨 渲染能力概览
+
+> **重要**: 此渲染器支持丰富的可视化元素，请充分利用！
+
+| 能力 | 语法 | 效果 |
+|------|------|------|
+| **图表渲染** | ` ```mermaid ` / `::: chart` | Mermaid 转 PNG 嵌入 |
+| **卡片布局** | `::: card` | 三列并排卡片 |
+| **双列布局** | `::: left` / `::: right` | 左右对比 |
+| **引用样式** | `> 文字\n> — 来源` | 突出显示引用 |
+| **数据高亮** | `` `+45%`{.metric} `` | 数值醒目标注 |
+| **表格** | Markdown 表格 | 整齐的数据呈现 |
+
+---
+
 ## 概述
 
 `/ppt-render` 是 PPT 生成流水线的最终环节，负责将结构化的 Slide Markdown 文件转换为专业的 PPTX 文件。它是一个**纯渲染器**，不负责内容生成或研究——只专注于高质量的视觉输出。
@@ -126,6 +143,7 @@ slides/
 | `three-cards` | 三列卡片 | case-study |
 | `table` | 表格 | content |
 | `quote` | 引用 | quote |
+| `chart` | 图表（Mermaid） | content, framework |
 
 ## 内容语法
 
@@ -176,6 +194,54 @@ slides/
 下降 `-20%`{.metric .negative}
 ```
 
+### 图表（Mermaid）
+
+支持两种方式嵌入图表：
+
+#### 方式一：Mermaid 代码块
+
+```markdown
+---
+slide:
+  layout: chart
+---
+# 流程图
+
+```mermaid
+flowchart LR
+    A[开始] --> B[处理] --> C[结束]
+```
+```
+
+#### 方式二：预定义图表模板
+
+```markdown
+---
+slide:
+  layout: chart
+---
+# AI实施三阶段
+
+::: chart
+template: process-flow
+title: 实施路线图
+steps:
+  - 快赢期 | 0-6月
+  - 价值放大 | 6-18月
+  - 全面转型 | 18月+
+:::
+```
+
+#### 可用图表模板
+
+| 模板 | 参数 | 适用场景 |
+|------|------|----------|
+| `process-flow` | `steps: [{label, detail}]` | 流程、阶段 |
+| `comparison` | `left: {title, items}, right: {...}` | 对比 |
+| `timeline` | `events: [{year, title}]` | 时间线 |
+| `pyramid` | `levels: [{label}]` | 层级 |
+| `circle-group` | `center, items: [string]` | 核心+扩展 |
+
 ## 错误处理
 
 | 错误类型 | 行为 |
@@ -194,6 +260,7 @@ slides/
 │   ├── render.js               # 主渲染脚本
 │   ├── slide-parser.js         # Slide-MD 解析器
 │   ├── pptx-renderer.js        # PPTX 渲染引擎
+│   ├── chart-renderer.js       # 🆕 Mermaid 图表渲染
 │   └── theme-loader.js         # 主题加载器
 └── themes/
     ├── corporate-light.yaml    # 预置主题
@@ -206,11 +273,15 @@ slides/
 - Node.js >= 16
 - pptxgenjs >= 3.12
 - yaml >= 2.0
+- @mermaid-js/mermaid-cli (可选，图表渲染需要)
 
 安装依赖：
 
 ```bash
 cd .claude/skills/ppt-render && npm install
+
+# 图表渲染需要安装 mermaid-cli
+npm install -g @mermaid-js/mermaid-cli
 ```
 
 ## API（编程使用）
@@ -242,6 +313,7 @@ await renderer.renderFile('./cover.slide.md', 'cover.pptx');
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 1.1.0 | 2026-01-12 | 添加 Mermaid 图表支持和预定义模板 |
 | 1.0.0 | 2026-01-12 | 初版 |
 
 ## 相关文档
