@@ -81,14 +81,20 @@ def save_config(config: dict) -> None:
         pass
 
 
-def get_active_key_entry(config: dict) -> dict | None:
-    """Get the active key entry from config."""
-    for entry in config.get("keys", []):
-        if entry.get("active"):
-            return entry
-    # If no active key, return first one
+def get_next_key_index(config: dict) -> int:
+    """Get the next key index using round-robin strategy."""
     keys = config.get("keys", [])
-    return keys[0] if keys else None
+    if not keys:
+        return -1
+    last_index = config.get("last_used_index", -1)
+    return (last_index + 1) % len(keys)
+
+
+def update_last_used_index(index: int) -> None:
+    """Update the last used key index in config."""
+    config = load_config()
+    config["last_used_index"] = index
+    save_config(config)
 
 
 def validate_key_format(key: str) -> bool:
@@ -115,16 +121,23 @@ def keys_list() -> None:
         print("Get your key from: https://aistudio.google.com/apikey")
         return
 
-    print(f"Configured API Keys ({len(keys)}):")
+    next_index = get_next_key_index(config)
+    last_index = config.get("last_used_index", -1)
+
+    print(f"Configured API Keys ({len(keys)}) - Round Robin Mode:")
     print("-" * 50)
-    for entry in keys:
+    for i, entry in enumerate(keys):
         name = entry.get("name", "unnamed")
         key = entry.get("key", "")
-        active = entry.get("active", False)
         masked_key = f"{key[:10]}...{key[-4:]}" if len(key) > 14 else "***"
-        marker = " [ACTIVE]" if active else ""
-        print(f"  {name}: {masked_key}{marker}")
+        marker = ""
+        if i == next_index:
+            marker = " [NEXT]"
+        elif i == last_index:
+            marker = " [LAST USED]"
+        print(f"  {i+1}. {name}: {masked_key}{marker}")
     print("-" * 50)
+    print(f"Strategy: Round-robin (auto-rotate on each call)")
     print(f"Config: {CONFIG_FILE}")
 
 
@@ -144,21 +157,13 @@ def keys_add(name: str, api_key: str) -> None:
             print(f"Use 'keys remove {name}' first, or choose a different name.")
             sys.exit(1)
 
-    # If this is the first key, make it active
-    is_first = len(keys) == 0
-
-    keys.append({
-        "name": name,
-        "key": api_key,
-        "active": is_first
-    })
+    keys.append({"name": name, "key": api_key})
     config["keys"] = keys
     save_config(config)
 
     masked_key = f"{api_key[:10]}...{api_key[-4:]}"
     print(f"OK: Added key '{name}' ({masked_key})")
-    if is_first:
-        print(f"    Set as active key.")
+    print(f"    Total keys: {len(keys)} (round-robin)")
 
 
 def keys_remove(name: str) -> None:
@@ -167,55 +172,38 @@ def keys_remove(name: str) -> None:
     keys = config.get("keys", [])
 
     # Find and remove the key
-    found = False
-    was_active = False
-    new_keys = []
-    for entry in keys:
+    found_index = -1
+    for i, entry in enumerate(keys):
         if entry.get("name") == name:
-            found = True
-            was_active = entry.get("active", False)
-        else:
-            new_keys.append(entry)
+            found_index = i
+            break
 
-    if not found:
+    if found_index == -1:
         print(f"ERROR: Key '{name}' not found.")
         print("Use 'keys list' to see available keys.")
         sys.exit(1)
 
-    # If removed key was active, activate first remaining key
-    if was_active and new_keys:
-        new_keys[0]["active"] = True
-        print(f"OK: Removed key '{name}'")
-        print(f"    Activated '{new_keys[0]['name']}' as new default.")
-    else:
-        print(f"OK: Removed key '{name}'")
-
-    config["keys"] = new_keys
-    save_config(config)
-
-
-def keys_use(name: str) -> None:
-    """Set a key as active by name."""
-    config = load_config()
-    keys = config.get("keys", [])
-
-    # Find the key and set it as active
-    found = False
-    for entry in keys:
-        if entry.get("name") == name:
-            entry["active"] = True
-            found = True
-        else:
-            entry["active"] = False
-
-    if not found:
-        print(f"ERROR: Key '{name}' not found.")
-        print("Use 'keys list' to see available keys.")
-        sys.exit(1)
-
+    keys.pop(found_index)
     config["keys"] = keys
+
+    # Adjust last_used_index if needed
+    last_index = config.get("last_used_index", -1)
+    if last_index >= len(keys):
+        config["last_used_index"] = len(keys) - 1 if keys else -1
+    elif last_index >= found_index and last_index > 0:
+        config["last_used_index"] = last_index - 1
+
     save_config(config)
-    print(f"OK: Now using key '{name}'")
+    print(f"OK: Removed key '{name}'")
+    print(f"    Remaining keys: {len(keys)}")
+
+
+def keys_reset() -> None:
+    """Reset round-robin to start from first key."""
+    config = load_config()
+    config["last_used_index"] = -1
+    save_config(config)
+    print("OK: Round-robin reset. Next call will use first key.")
 
 
 # =============================================================================
@@ -231,14 +219,11 @@ def setup_config(api_key: str, project_id: str = None) -> None:
     # Remove existing 'default' if exists
     keys = [k for k in keys if k.get("name") != "default"]
 
-    # Deactivate all existing keys
-    for k in keys:
-        k["active"] = False
-
-    # Add new default key as active
-    keys.insert(0, {"name": "default", "key": api_key, "active": True})
+    # Add new default key at the beginning
+    keys.insert(0, {"name": "default", "key": api_key})
 
     config["keys"] = keys
+    config["last_used_index"] = -1  # Reset to start with this key
     if project_id:
         config["project_id"] = project_id
     save_config(config)
@@ -248,9 +233,9 @@ def setup_config(api_key: str, project_id: str = None) -> None:
 def check_config() -> bool:
     """Check if configuration exists and is valid."""
     config = load_config()
-    active = get_active_key_entry(config)
+    keys = config.get("keys", [])
 
-    if not active:
+    if not keys:
         print("STATUS: NOT_CONFIGURED")
         print("")
         print("=" * 60)
@@ -271,7 +256,10 @@ def check_config() -> bool:
         print("=" * 60)
         return False
 
-    api_key = active.get("key", "")
+    next_index = get_next_key_index(config)
+    next_key = keys[next_index]
+    api_key = next_key.get("key", "")
+
     if not validate_key_format(api_key):
         print("STATUS: INVALID_KEY")
         print(f"The stored API key appears invalid: {api_key[:10]}...")
@@ -280,11 +268,8 @@ def check_config() -> bool:
 
     print("STATUS: CONFIGURED")
     print(f"Config file: {CONFIG_FILE}")
-    print(f"Active key: {active.get('name')} ({api_key[:10]}...{api_key[-4:]})")
-
-    total_keys = len(config.get("keys", []))
-    if total_keys > 1:
-        print(f"Total keys: {total_keys}")
+    print(f"Total keys: {len(keys)} (round-robin)")
+    print(f"Next key: {next_key.get('name')} ({api_key[:10]}...{api_key[-4:]})")
 
     project_id = config.get("project_id")
     if project_id:
@@ -292,28 +277,34 @@ def check_config() -> bool:
     return True
 
 
-def get_api_key(key_name: str = None) -> str:
-    """Get API key from config file."""
+def get_api_key(key_name: str = None) -> tuple[str, str]:
+    """Get API key from config file using round-robin.
+
+    Returns: (api_key, key_name)
+    """
     config = load_config()
+    keys = config.get("keys", [])
 
     if key_name:
-        # Use specific key by name
-        for entry in config.get("keys", []):
+        # Use specific key by name (doesn't affect round-robin)
+        for entry in keys:
             if entry.get("name") == key_name:
-                return entry.get("key")
+                return entry.get("key"), key_name
         print(f"ERROR: Key '{key_name}' not found.")
         print("Use 'keys list' to see available keys.")
         sys.exit(1)
 
-    # Use active key
-    active = get_active_key_entry(config)
-    if active:
-        return active.get("key")
+    # Use round-robin
+    if keys:
+        next_index = get_next_key_index(config)
+        entry = keys[next_index]
+        update_last_used_index(next_index)
+        return entry.get("key"), entry.get("name")
 
     # Fallback to environment variable
     api_key = os.environ.get("GEMINI_API_KEY")
     if api_key:
-        return api_key
+        return api_key, "ENV"
 
     print("ERROR: Gemini API key not configured")
     print("")
@@ -331,7 +322,7 @@ def generate_image(prompt: str, output_path: str, aspect_ratio: str = "16:9",
                    model: str = DEFAULT_MODEL, key_name: str = None) -> str:
     """Generate an image using Gemini API with Nano Banana Pro style."""
 
-    api_key = get_api_key(key_name)
+    api_key, used_key_name = get_api_key(key_name)
     width, height = ASPECT_RATIOS.get(aspect_ratio, ASPECT_RATIOS["16:9"])
     styled_prompt = f"{prompt}\n\n{NANO_BANANA_STYLE}\n\nImage dimensions: {width}x{height} pixels ({aspect_ratio} aspect ratio)"
 
@@ -346,6 +337,7 @@ def generate_image(prompt: str, output_path: str, aspect_ratio: str = "16:9",
     }
 
     print(f"Generating image: {prompt[:50]}...")
+    print(f"Using key: {used_key_name}")
     print(f"Aspect ratio: {aspect_ratio}")
     print(f"Output: {output_path}")
 
@@ -427,14 +419,11 @@ def handle_keys_command(args: list) -> None:
             print("Usage: keys remove <name>")
             sys.exit(1)
         keys_remove(args[1])
-    elif args[0] == "use":
-        if len(args) < 2:
-            print("Usage: keys use <name>")
-            sys.exit(1)
-        keys_use(args[1])
+    elif args[0] == "reset":
+        keys_reset()
     else:
         print(f"Unknown keys command: {args[0]}")
-        print("Available: list, add, remove, use")
+        print("Available: list, add, remove, reset")
         sys.exit(1)
 
 
@@ -448,20 +437,24 @@ def main():
         description="Generate Nano Banana Pro styled images using Gemini API",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Key Management:
+Key Management (Round-Robin):
   %(prog)s keys list                    List all API keys
   %(prog)s keys add <name> <key>        Add a new API key
   %(prog)s keys remove <name>           Remove an API key
-  %(prog)s keys use <name>              Set active API key
+  %(prog)s keys reset                   Reset to start from first key
 
 Image Generation:
   %(prog)s "description" output.png
   %(prog)s "description" output.png --aspect 1:1
-  %(prog)s "description" output.png --key work    # Use specific key
+  %(prog)s "description" output.png --key work    # Use specific key (skip rotation)
 
 Legacy Commands:
   %(prog)s --setup --api-key "AIza..."  Add key as 'default'
   %(prog)s --check                      Check configuration
+
+Strategy:
+  Keys are used in round-robin order. Each generation uses the next key.
+  Use --key <name> to use a specific key without affecting rotation.
 
 Configuration:
   Keys stored in: ~/.config/nano-banana-image/config.json
