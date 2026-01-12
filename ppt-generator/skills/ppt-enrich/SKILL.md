@@ -12,6 +12,48 @@ description: |
 
 ---
 
+## ⛔ 研究工具选择规则（必读）
+
+> **STOP! 这是内容填充阶段，需要深度研究。请务必阅读此规则。**
+
+### 🚨 核心规则
+
+```
+当 skeleton.yaml 包含 research_needs 时：
+
+❌ 绝对禁止: WebSearch → 结果太浅，不足以支撑 PPT
+❌ 绝对禁止: 凭记忆编造数据 → 可能过时或错误
+✅ 必须使用: openai-deep-research → 深度、可靠、有引用
+```
+
+### 调用 deep-research 的方式
+
+```bash
+# 直接调用研究脚本
+python scripts/research/deep_research.py \
+    --query "Tesla stock price forecast 2026" \
+    --output ./research/tesla_forecast.json \
+    --mode browser
+
+# 或通过 enrich.py 自动调用
+python scripts/enrich.py skeleton.yaml \
+    --research-mode browser \
+    -o slides/
+```
+
+### 研究质量检查清单
+
+生成内容前，确认研究结果包含：
+
+- [ ] **具体数据**: 有数字、百分比、金额
+- [ ] **时效性**: 数据来自最近 6 个月
+- [ ] **来源引用**: 每个关键数据有出处
+- [ ] **多角度**: 不只一个信息源
+
+**如果研究结果不满足以上条件，重新调用 deep-research！**
+
+---
+
 ## 🎨 设计工具箱 (Design Toolkit)
 
 > **重要**: 生成 slide-md 时，**必须**充分利用以下设计工具，确保输出美观大方、专业精致。

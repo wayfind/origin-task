@@ -10,6 +10,57 @@ description: |
 
 > 一键生成专业 PPT 的编排器
 
+---
+
+## ⛔ 研究工具选择规则（必读）
+
+> **STOP! 在进行任何数据研究之前，必须阅读此规则。**
+
+### 工具优先级
+
+| 优先级 | 工具 | 何时使用 | 能力 |
+|--------|------|----------|------|
+| 🥇 **1st** | `openai-deep-research` | **需要深度数据时必须使用** | 浏览器自动化、多轮搜索、登录网站、结构化输出 |
+| 🥈 2nd | `WebFetch` | 已知具体 URL | 单页面抓取 |
+| 🥉 3rd | `WebSearch` | 仅快速验证事实 | 简单搜索，结果浅层 |
+
+### ⚠️ 强制规则
+
+**当 skeleton.yaml 中存在 `research_needs` 时：**
+
+```
+❌ 禁止: 直接使用 WebSearch 获取数据
+✅ 必须: 调用 openai-deep-research skill 执行深度研究
+```
+
+**调用方式：**
+
+```python
+# 方式1: 通过 Task agent 调用 deep-research
+Task(
+    subagent_type="general-purpose",
+    prompt="使用 openai-deep-research skill 研究: {query}"
+)
+
+# 方式2: 直接调用研究脚本
+python ppt-enrich/scripts/research/deep_research.py \
+    --query "{query}" \
+    --output research_results.json
+```
+
+### 为什么不用 WebSearch？
+
+| WebSearch | deep-research |
+|-----------|---------------|
+| 返回 10 条摘要 | 返回完整分析报告 |
+| 无法进入付费墙 | 可用浏览器登录 |
+| 单轮搜索 | 多轮迭代研究 |
+| 无来源验证 | 结构化引用来源 |
+
+**记住：PPT 需要的是深度洞察，不是搜索结果拼凑！**
+
+---
+
 ## 概述
 
 `/ppt` 是 PPT 生成的主入口命令，它编排 `outline → enrich → render` 三阶段流程，将用户的原始需求转化为专业的 PPTX 文件。
