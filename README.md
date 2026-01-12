@@ -10,42 +10,36 @@ Claude Code Plugin Marketplace for AI-powered productivity tools.
 
 # 2. Install plugin
 /plugin install intent-engine
+/plugin install nano-banana-image
+/plugin install ppt-generator
 ```
 
 ## Available Plugins
 
-### intent-engine
-
-Cross-session task tracking and AI productivity tools for Claude Code.
-
-#### Skills Included
-
-| Skill | Description |
-|-------|-------------|
-| [intent-engine](#intent-engine-skill) | AI Long-Term Task Memory |
-| [openai-deep-research](#openai-deep-research-skill) | Deep Research via browser automation |
+| Plugin | Description |
+|--------|-------------|
+| [intent-engine](#intent-engine) | Cross-session task tracking + Deep Research |
+| [nano-banana-image](#nano-banana-image) | AI image generation with Nano Banana Pro style |
+| [ppt-generator](#ppt-generator) | Modular PPT generation pipeline |
 
 ---
 
-## intent-engine Skill
+## intent-engine
 
-Cross-session task tracking for Claude Code. Use `ie plan` instead of TodoWrite for:
+Cross-session task tracking and AI productivity tools for Claude Code.
 
-- **Persistent memory** — Tasks survive across sessions
-- **Hierarchical breakdown** — Parent tasks with subtasks
-- **Decision tracking** — Record why you made choices
-- **Smart search** — Find tasks and events with FTS5
-- **Visual dashboard** — Web UI for task management
+### Skills Included
+
+| Skill | Description |
+|-------|-------------|
+| intent-engine | AI Long-Term Task Memory |
+| openai-deep-research | Deep Research via browser automation |
 
 ### Dashboard
-
-After installation, launch the visual dashboard:
 
 ```bash
 ie dashboard
 ```
-
-![IE Dashboard](https://raw.githubusercontent.com/wayfind/intent-engine/main/docs/iedashboard.png)
 
 **Features:**
 - Task Navigator with hierarchical tree view
@@ -53,47 +47,14 @@ ie dashboard
 - Decision timeline with chronological logs
 - Multi-project support via tabs
 
-### How It Works
-
-After installation, the plugin automatically:
-
-1. Runs `ie status` at every session start
-2. Shows your current focused task and progress
-3. Injects session ID for task isolation
-
-### Prerequisites
-
-The plugin will auto-install `ie` CLI via npm if not found. You can also install manually:
+### Quick Start
 
 ```bash
-npm install -g @origintask/intent-engine
-# or
-cargo install intent-engine
-# or
-brew install wayfind/tap/intent-engine
-```
-
-### Usage
-
-```bash
-# View dashboard
-ie dashboard
-
-# Create task
-echo '{"tasks":[{"name":"My Task","status":"doing"}]}' | ie plan
-
 # View status
 ie status
 
-# Hierarchical tasks
-echo '{"tasks":[{
-  "name":"Parent task",
-  "status":"doing",
-  "children":[
-    {"name":"Subtask 1","status":"todo"},
-    {"name":"Subtask 2","status":"todo"}
-  ]
-}]}' | ie plan
+# Create task
+echo '{"tasks":[{"name":"My Task","status":"doing"}]}' | ie plan
 
 # Record decision
 ie log decision "Chose X because Y"
@@ -102,80 +63,126 @@ ie log decision "Chose X because Y"
 ie search "todo doing"
 ```
 
----
+### Deep Research
 
-## openai-deep-research Skill
-
-Browser automation for OpenAI's Deep Research feature via Playwright.
-
-### Features
-
-- **Login mode** — `--login` for first-time session setup with clear UX
-- **Session isolation** — `--session NAME` for parallel runs
-- **Headless mode** — `--headless` with auto-fallback if no session
-- **Session management** — `--list-sessions` to view saved sessions
-- **Robust detection** — Auto-detects thinking vs final report
-
-### Prerequisites
+Browser automation for OpenAI's Deep Research feature.
 
 ```bash
-pip install playwright
-playwright install chromium
-```
-
-### Quick Start
-
-```bash
-# 1. First time: login and save session
+# First time: login
 python deep_research_browser.py --login
 
-# 2. Run queries (can be headless after login)
+# Run queries
 python deep_research_browser.py "Your research query" -o result.md --headless
-```
-
-### Usage
-
-```bash
-# Login with named session (for multiple accounts)
-python deep_research_browser.py --login --session work
-
-# Run a query
-python deep_research_browser.py "What are the latest AI breakthroughs?" -o result.md
 
 # Parallel runs with different sessions
 python deep_research_browser.py "Query 1" -o r1.md --session work &
 python deep_research_browser.py "Query 2" -o r2.md --session personal &
-
-# List all saved sessions
-python deep_research_browser.py --list-sessions
 ```
 
-### Options
+---
 
-| Option | Description |
-|--------|-------------|
-| `--login` | Login mode: open browser, save session |
-| `--session NAME` | Session name for parallel runs (default: default) |
-| `--list-sessions` | List all saved sessions |
-| `--headless` | Run headless (requires prior login) |
-| `-o, --output FILE` | Save result to file |
-| `-t, --timeout SECS` | Timeout (default: 2400 = 40min) |
-| `-v, --verbose` | Debug logging |
+## nano-banana-image
 
-### How It Works
+AI image generation with Nano Banana Pro visual style using Gemini API.
 
-1. **Login mode**: Opens visible browser for manual ChatGPT login, saves cookies
-2. **Query mode**: Loads saved session, selects Deep Research, submits query
-3. **Waiting**: Polls for completion (refreshes every 60s for background tasks)
-4. **Output**: Saves final report to file
+### Features
 
-### Timing
+- **Nano Banana Pro Style**: Auto-applies signature dark navy, golden yellow, teal color palette
+- **Multi-Key Support**: Manage multiple Gemini API keys
+- **Round-Robin Rotation**: Automatically rotates keys to distribute API usage
+- **Multiple Aspect Ratios**: 1:1, 16:9, 9:16, 4:3, 3:4
 
-| Phase | Duration |
-|-------|----------|
-| First login | 1-2 min (manual) |
-| Subsequent load | 5-10 sec |
-| Deep Research | 10-30 min |
+### Quick Start
+
+```bash
+# First time: add API key
+python scripts/generate_image.py keys add default "AIzaSy..."
+
+# Generate image
+python scripts/generate_image.py "a futuristic productivity device" output.png
+
+# With aspect ratio
+python scripts/generate_image.py "app icon" icon.png --aspect 1:1
+```
+
+### Key Management (Round-Robin)
+
+```bash
+# List all keys
+python scripts/generate_image.py keys list
+
+# Add keys
+python scripts/generate_image.py keys add default AIzaSy...
+python scripts/generate_image.py keys add work AIzaSy...
+
+# Remove key
+python scripts/generate_image.py keys remove <name>
+
+# Reset rotation
+python scripts/generate_image.py keys reset
+```
+
+Each image generation automatically uses the next key in rotation:
+```
+Call 1 → Using key: default
+Call 2 → Using key: work
+Call 3 → Using key: default
+...
+```
+
+### Style Applied
+
+All images automatically include:
+- **Colors**: Deep navy (#1C2833), golden yellow (#F4C430), teal (#00D9C0)
+- **Aesthetic**: Dark mode, geometric shapes, high contrast, minimalist
+
+---
+
+## ppt-generator
+
+Modular PPT generation pipeline: outline → enrich → render.
+
+### Skills Included
+
+| Skill | Description |
+|-------|-------------|
+| /ppt | Main orchestrator |
+| /ppt-outline | Generate skeleton from context |
+| /ppt-enrich | Fill content, run research |
+| /ppt-render | Render to PPTX |
+
+### Quick Start
+
+```bash
+# Full pipeline
+/ppt ./docs/ -o presentation.pptx
+
+# Step by step
+/ppt-outline --context ./docs/ -o skeleton.yaml
+/ppt-enrich skeleton.yaml -o slides/
+/ppt-render slides/ -o output.pptx
+```
+
+### Architecture
+
+```
+                    /ppt (orchestrator)
+                         │
+        ┌────────────────┼────────────────┐
+        ▼                ▼                ▼
+   /ppt-outline    /ppt-enrich      /ppt-render
+   (skeleton)      (content)        (PPTX)
+        │                │                │
+        ▼                ▼                ▼
+   skeleton.yaml    slides/*.md     output.pptx
+```
+
+### Themes
+
+| Theme | Description |
+|-------|-------------|
+| `corporate-light` | Professional white background |
+| `nano-banana-pro` | Dark tech aesthetic |
 
 ---
 
@@ -183,6 +190,8 @@ python deep_research_browser.py --list-sessions
 
 ```bash
 /plugin uninstall intent-engine
+/plugin uninstall nano-banana-image
+/plugin uninstall ppt-generator
 /plugin marketplace remove origin-task
 ```
 

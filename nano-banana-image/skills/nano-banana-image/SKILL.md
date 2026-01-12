@@ -10,14 +10,41 @@ description: |
 
 Generate AI images styled with the Nano Banana Pro visual identity using Google Gemini API.
 
+## Key Features
+
+- **Nano Banana Pro Style**: Auto-applies signature dark navy, golden yellow, teal color palette
+- **Multi-Key Support**: Manage multiple Gemini API keys
+- **Round-Robin Rotation**: Automatically rotates keys to distribute API usage
+- **Multiple Aspect Ratios**: 1:1, 16:9, 9:16, 4:3, 3:4
+
+## Quick Start
+
+```bash
+# Generate an image
+python scripts/generate_image.py "a futuristic productivity device" output.png
+
+# With aspect ratio
+python scripts/generate_image.py "app icon with lightning bolt" icon.png --aspect 1:1
+```
+
 ## API Key Management
 
-Supports multiple API keys with named profiles.
+Keys are stored in `~/.config/nano-banana-image/config.json` and used in **round-robin** order.
 
 ### List Keys
 
 ```bash
 python scripts/generate_image.py keys list
+```
+
+Output:
+```
+Configured API Keys (2) - Round Robin Mode:
+--------------------------------------------------
+  1. default: AIzaSyDu8m...4Z0I [LAST USED]
+  2. secondary: AIzaSyAxUw...ydqk [NEXT]
+--------------------------------------------------
+Strategy: Round-robin (auto-rotate on each call)
 ```
 
 ### Add a Key
@@ -28,7 +55,6 @@ python scripts/generate_image.py keys add <name> <api-key>
 # Examples:
 python scripts/generate_image.py keys add default AIzaSy...
 python scripts/generate_image.py keys add work AIzaSy...
-python scripts/generate_image.py keys add personal AIzaSy...
 ```
 
 ### Remove a Key
@@ -37,21 +63,23 @@ python scripts/generate_image.py keys add personal AIzaSy...
 python scripts/generate_image.py keys remove <name>
 ```
 
-### Switch Active Key
+### Reset Rotation
 
 ```bash
-python scripts/generate_image.py keys use <name>
+python scripts/generate_image.py keys reset
 ```
+
+Restarts round-robin from the first key.
 
 ### First-Time Setup
 
-On first use, if no keys configured:
+On first use with no keys configured:
 
 ```bash
 python scripts/generate_image.py --check
 ```
 
-Shows setup instructions. Once user provides key:
+This shows setup instructions. User provides key, then:
 
 ```bash
 python scripts/generate_image.py keys add default "AIzaSy..."
@@ -59,13 +87,7 @@ python scripts/generate_image.py keys add default "AIzaSy..."
 
 ## Image Generation
 
-### Quick Start
-
-```bash
-python scripts/generate_image.py "a futuristic productivity device" output.png
-```
-
-### Full Usage
+### Usage
 
 ```bash
 python scripts/generate_image.py "<description>" [output_path] [options]
@@ -77,11 +99,12 @@ python scripts/generate_image.py "<description>" [output_path] [options]
 | `output_path` | Output file path | `output.png` |
 | `--aspect` | Aspect ratio: 1:1, 16:9, 9:16, 4:3, 3:4 | `16:9` |
 | `--model` | Gemini model to use | `gemini-3-pro-image-preview` |
-| `--key` | Use specific key by name | active key |
+| `--key` | Use specific key (skips rotation) | next in rotation |
 
-### Use Specific Key for Generation
+### Use Specific Key
 
 ```bash
+# Use 'work' key for this generation only (doesn't affect rotation)
 python scripts/generate_image.py "prompt" output.png --key work
 ```
 
@@ -102,7 +125,7 @@ python scripts/generate_image.py "a compact smart device with glowing edges" pro
 
 **Abstract Background**
 ```bash
-python scripts/generate_image.py "abstract geometric pattern with circles and lines" bg.png --aspect 16:9
+python scripts/generate_image.py "abstract geometric pattern with flowing particles" bg.png --aspect 16:9
 ```
 
 **Icon/Logo**
@@ -110,10 +133,9 @@ python scripts/generate_image.py "abstract geometric pattern with circles and li
 python scripts/generate_image.py "minimalist sync icon with two rotating arrows" icon.png --aspect 1:1
 ```
 
-**Using Different Keys**
+**Hero Image**
 ```bash
-# Use work key for this generation
-python scripts/generate_image.py "presentation hero image" hero.png --key work
+python scripts/generate_image.py "futuristic AI brain with neural connections" hero.png
 ```
 
 ## Prompt Tips
@@ -148,7 +170,7 @@ The Nano Banana style (colors, aesthetic) is automatically added.
 | `No API keys configured` | Run `keys add <name> <key>` |
 | `Key 'xxx' not found` | Run `keys list` to see available keys |
 | `HTTP 403` | Key invalid or lacks permissions |
-| `HTTP 429` | Rate limited, wait and retry |
+| `HTTP 429` | Rate limited - round-robin helps distribute load |
 | `No image generated` | Rephrase prompt, avoid restricted content |
 
 ## Security
@@ -162,9 +184,9 @@ The Nano Banana style (colors, aesthetic) is automatically added.
 
 | Command | Description |
 |---------|-------------|
-| `keys list` | List all configured API keys |
+| `keys list` | List all keys with rotation status |
 | `keys add <name> <key>` | Add a new API key |
 | `keys remove <name>` | Remove an API key |
-| `keys use <name>` | Set active API key |
+| `keys reset` | Reset rotation to first key |
 | `--check` | Check configuration status |
-| `--key <name>` | Use specific key for generation |
+| `--key <name>` | Use specific key for one generation |
