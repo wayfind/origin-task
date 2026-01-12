@@ -8,14 +8,171 @@ Interactive Wizard - PPT 生成交互式向导
 - 目标时长
 - 受众类型
 - 演示场合
+- 账号能力（deep-research, nano-banana-image）
 """
 
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 import yaml
 
+
+# ============================================================
+# Capabilities Checker - 能力检测器
+# ============================================================
+
+@dataclass
+class Capabilities:
+    """用户能力配置"""
+    deep_research: bool = False      # 有 ChatGPT Plus
+    image_generation: bool = False   # 有 Gemini API
+    chatgpt_logged_in: bool = False
+    gemini_api_key_set: bool = False
+
+    # Skill 路径
+    deep_research_path: Optional[Path] = None
+    nano_banana_path: Optional[Path] = None
+
+
+class CapabilitiesChecker:
+    """能力检测和初始化"""
+
+    # Skill 相对路径（从 ppt-generator 出发）
+    SKILL_PATHS = {
+        'deep_research': [
+            Path('../openai-deep-research'),
+            Path('../../openai-deep-research'),
+            Path('/home/david/prj/origin-task/openai-deep-research'),
+        ],
+        'nano_banana': [
+            Path('../nano-banana-image'),
+            Path('../../nano-banana-image'),
+            Path('/home/david/prj/origin-task/nano-banana-image'),
+        ],
+    }
+
+    def __init__(self, work_dir: Path = None, config_path: Path = None):
+        self.work_dir = Path(work_dir) if work_dir else Path('.')
+        self.config_path = config_path or (self.work_dir / '.pptrc.yaml')
+        self.capabilities = Capabilities()
+
+    def check_existing_config(self) -> bool:
+        """检查是否已有配置文件"""
+        if self.config_path.exists():
+            try:
+                config = yaml.safe_load(self.config_path.read_text(encoding='utf-8'))
+                if caps := config.get('capabilities', {}):
+                    self.capabilities.deep_research = caps.get('deep_research', False)
+                    self.capabilities.image_generation = caps.get('image_generation', False)
+                if auth := config.get('auth', {}):
+                    self.capabilities.chatgpt_logged_in = auth.get('chatgpt_logged_in', False)
+                    self.capabilities.gemini_api_key_set = auth.get('gemini_api_key_set', False)
+                return True
+            except Exception:
+                pass
+        return False
+
+    def detect_skills(self) -> Dict[str, Optional[Path]]:
+        """检测可用的 skill 路径"""
+        result = {}
+
+        for skill_name, paths in self.SKILL_PATHS.items():
+            for path in paths:
+                # 处理相对路径
+                if not path.is_absolute():
+                    full_path = (self.work_dir / path).resolve()
+                else:
+                    full_path = path
+
+                if full_path.exists() and full_path.is_dir():
+                    result[skill_name] = full_path
+                    break
+            else:
+                result[skill_name] = None
+
+        # 更新 capabilities
+        if result.get('deep_research'):
+            self.capabilities.deep_research_path = result['deep_research']
+        if result.get('nano_banana'):
+            self.capabilities.nano_banana_path = result['nano_banana']
+
+        return result
+
+    def check_gemini_api_key(self) -> bool:
+        """检查 Gemini API Key 是否设置"""
+        return bool(os.environ.get('GEMINI_API_KEY'))
+
+    def save_config(self):
+        """保存能力配置到 .pptrc.yaml"""
+        config = {}
+
+        # 读取现有配置
+        if self.config_path.exists():
+            try:
+                config = yaml.safe_load(self.config_path.read_text(encoding='utf-8')) or {}
+            except Exception:
+                pass
+
+        # 更新 capabilities
+        config['capabilities'] = {
+            'deep_research': self.capabilities.deep_research,
+            'image_generation': self.capabilities.image_generation,
+        }
+
+        config['auth'] = {
+            'chatgpt_logged_in': self.capabilities.chatgpt_logged_in,
+            'gemini_api_key_set': self.capabilities.gemini_api_key_set,
+        }
+
+        # 保存 skill 路径
+        config['skill_paths'] = {}
+        if self.capabilities.deep_research_path:
+            config['skill_paths']['deep_research'] = str(self.capabilities.deep_research_path)
+        if self.capabilities.nano_banana_path:
+            config['skill_paths']['nano_banana'] = str(self.capabilities.nano_banana_path)
+
+        # 写入文件
+        self.config_path.write_text(
+            yaml.dump(config, default_flow_style=False, allow_unicode=True),
+            encoding='utf-8'
+        )
+
+    def print_status(self):
+        """打印能力状态"""
+        print("\n" + "=" * 55)
+        print("  能力检测结果")
+        print("=" * 55)
+
+        # Deep Research
+        if self.capabilities.deep_research_path:
+            status = "✓ 可用" if self.capabilities.deep_research else "○ 未启用"
+            print(f"  Deep Research: {status}")
+            print(f"    路径: {self.capabilities.deep_research_path}")
+            if self.capabilities.deep_research:
+                logged_in = "✓ 已登录" if self.capabilities.chatgpt_logged_in else "○ 需要登录"
+                print(f"    ChatGPT: {logged_in}")
+        else:
+            print("  Deep Research: ✗ 未找到 skill")
+
+        # Nano Banana
+        if self.capabilities.nano_banana_path:
+            status = "✓ 可用" if self.capabilities.image_generation else "○ 未启用"
+            print(f"  Nano Banana Image: {status}")
+            print(f"    路径: {self.capabilities.nano_banana_path}")
+            if self.capabilities.image_generation:
+                api_key = "✓ 已设置" if self.capabilities.gemini_api_key_set else "○ 需要设置"
+                print(f"    GEMINI_API_KEY: {api_key}")
+        else:
+            print("  Nano Banana Image: ✗ 未找到 skill")
+
+        print("=" * 55)
+
+
+# ============================================================
+# Wizard Context
+# ============================================================
 
 @dataclass
 class WizardContext:
@@ -72,6 +229,8 @@ class InteractiveWizard:
         self.work_dir = Path(work_dir) if work_dir else Path('.')
         self.config = config or {}
         self.context = WizardContext()
+        self.capabilities_checker = CapabilitiesChecker(self.work_dir)
+        self.capabilities = self.capabilities_checker.capabilities
 
     def detect_context(self) -> WizardContext:
         """自动检测当前目录的上下文信息"""
@@ -174,6 +333,87 @@ class InteractiveWizard:
         """检查是否需要交互式输入"""
         return len(self.context.missing_fields) > 0
 
+    def check_capabilities(self, force_recheck: bool = False) -> Capabilities:
+        """检查并确认用户能力"""
+        # 检查是否已有配置
+        has_config = self.capabilities_checker.check_existing_config()
+
+        if has_config and not force_recheck:
+            # 已有配置，跳过确认
+            self.capabilities_checker.detect_skills()
+            return self.capabilities
+
+        # 检测可用 skill
+        self.capabilities_checker.detect_skills()
+
+        # 需要用户确认
+        return self._prompt_capabilities()
+
+    def _prompt_capabilities(self) -> Capabilities:
+        """交互式确认用户能力"""
+        print("\n" + "=" * 55)
+        print("  首次使用配置")
+        print("=" * 55)
+        print("\n为了提供最佳体验，请确认您的账号情况：\n")
+
+        # 1. ChatGPT Plus
+        if self.capabilities.deep_research_path:
+            print("检测到 deep-research skill。")
+            print("  → 需要 ChatGPT Plus/Pro 账号才能使用深度研究功能。")
+            has_plus = input("\n您是否有 ChatGPT Plus/Pro 账号？[y/N]: ").strip().lower()
+            if has_plus in ('y', 'yes', '是'):
+                self.capabilities.deep_research = True
+                print("  → 请确保已在浏览器中登录 chat.openai.com")
+                logged_in = input("  已登录 ChatGPT？[y/N]: ").strip().lower()
+                self.capabilities.chatgpt_logged_in = logged_in in ('y', 'yes', '是')
+            else:
+                self.capabilities.deep_research = False
+                print("  → 将使用 WebSearch 作为备选（研究质量较低）")
+        else:
+            print("未检测到 deep-research skill。")
+            print("  → 将使用 WebSearch（研究质量较低）")
+            self.capabilities.deep_research = False
+
+        # 2. Gemini API
+        print()
+        if self.capabilities.nano_banana_path:
+            print("检测到 nano-banana-image skill。")
+            print("  → 需要 Gemini API Key 才能生成配图。")
+            has_gemini = input("\n您是否有 Gemini API Key？[y/N]: ").strip().lower()
+            if has_gemini in ('y', 'yes', '是'):
+                self.capabilities.image_generation = True
+
+                # 检查环境变量
+                if self.capabilities_checker.check_gemini_api_key():
+                    self.capabilities.gemini_api_key_set = True
+                    print("  ✓ GEMINI_API_KEY 已设置")
+                else:
+                    print("  → 请设置环境变量: export GEMINI_API_KEY='your-key'")
+                    api_key = input("  或直接输入 API Key（留空跳过）: ").strip()
+                    if api_key:
+                        os.environ['GEMINI_API_KEY'] = api_key
+                        self.capabilities.gemini_api_key_set = True
+                        print("  ✓ API Key 已临时设置（本次会话有效）")
+                    else:
+                        self.capabilities.gemini_api_key_set = False
+                        print("  → 将跳过配图生成")
+            else:
+                self.capabilities.image_generation = False
+                print("  → 将跳过配图生成")
+        else:
+            print("未检测到 nano-banana-image skill。")
+            print("  → 将跳过配图生成")
+            self.capabilities.image_generation = False
+
+        # 保存配置
+        self.capabilities_checker.save_config()
+        print("\n配置已保存到 .pptrc.yaml")
+
+        # 显示状态
+        self.capabilities_checker.print_status()
+
+        return self.capabilities
+
     def run_interactive(self) -> Dict[str, Any]:
         """运行交互式向导，返回收集的参数"""
         result = {
@@ -184,6 +424,15 @@ class InteractiveWizard:
             'theme': 'corporate-light',
             'context_dir': str(self.context.detected_docs_dir) if self.context.detected_docs_dir else None,
             'skeleton_path': str(self.context.detected_skeleton) if self.context.detected_skeleton else None,
+        }
+
+        # 首先检查能力配置
+        self.check_capabilities()
+
+        # 将能力信息添加到结果
+        result['capabilities'] = {
+            'deep_research': self.capabilities.deep_research,
+            'image_generation': self.capabilities.image_generation,
         }
 
         self._print_header()

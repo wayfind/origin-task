@@ -12,6 +12,91 @@ description: |
 
 ---
 
+## 🚀 首次使用初始化（必读）
+
+> **在生成 PPT 之前，必须先确认用户的账号和工具可用性。**
+
+### Step 1: 确认账号能力
+
+**必须使用 AskUserQuestion 工具询问用户：**
+
+```
+问题1: 您是否有 ChatGPT Plus/Pro 账号？
+  - 是 → 可使用 deep-research 进行深度研究
+  - 否 → 仅使用 WebSearch（研究质量较低）
+
+问题2: 您是否有 Gemini API Key（Pro 或以上）？
+  - 是 → 可使用 nano-banana-image 生成配图
+  - 否 → 跳过配图生成
+```
+
+### Step 2: 安装依赖 Skill
+
+根据用户确认，安装对应的 skill：
+
+```bash
+# 如果有 ChatGPT Plus，安装 deep-research
+# 相对路径: ../../../openai-deep-research (同一个 git 库)
+SKILL_BASE="/home/david/prj/origin-task"
+
+# deep-research skill
+if [ ! -d "$SKILL_BASE/openai-deep-research" ]; then
+    echo "deep-research skill 已在 $SKILL_BASE/openai-deep-research"
+fi
+
+# nano-banana-image skill
+if [ ! -d "$SKILL_BASE/nano-banana-image" ]; then
+    echo "nano-banana-image skill 已在 $SKILL_BASE/nano-banana-image"
+fi
+```
+
+### Step 3: 配置认证
+
+**ChatGPT Plus 用户：**
+```
+提示: 请在浏览器中登录 ChatGPT (chat.openai.com)
+deep-research 将使用 Playwright 自动化访问
+```
+
+**Gemini API 用户：**
+```
+提示: 请设置环境变量 GEMINI_API_KEY
+export GEMINI_API_KEY="your-api-key-here"
+```
+
+### Step 4: 记录用户配置
+
+将确认结果保存到 `.pptrc.yaml`：
+
+```yaml
+# .pptrc.yaml (自动生成)
+capabilities:
+  deep_research: true    # 有 ChatGPT Plus
+  image_generation: true # 有 Gemini API
+
+auth:
+  chatgpt_logged_in: true
+  gemini_api_key_set: true
+```
+
+### ⚠️ 初始化检查清单
+
+**每次执行 /ppt 时，检查：**
+
+1. [ ] 是否存在 `.pptrc.yaml`？
+   - 否 → 执行初始化流程
+   - 是 → 读取已保存的配置
+
+2. [ ] deep-research 是否可用？
+   - 检查: `python -c "from research.deep_research import DeepResearch"`
+
+3. [ ] nano-banana-image 是否可用？
+   - 检查: skill 目录是否存在 + GEMINI_API_KEY 是否设置
+
+**如果任何检查失败，提示用户重新配置！**
+
+---
+
 ## ⛔ 研究工具选择规则（必读）
 
 > **STOP! 在进行任何数据研究之前，必须阅读此规则。**
