@@ -20,6 +20,7 @@ from typing import List, Dict, Optional, Any
 
 from gap_detector import GapDetector
 from slidemd_writer import SlideMDWriter, SlideContent
+from layout_advisor import LayoutAdvisor, LayoutDecision, LayoutType
 
 # 添加 ppt-outline 路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / 'ppt-outline' / 'scripts'))
@@ -73,6 +74,10 @@ class PPTEnrich:
 
         # 空缺检测器
         self.gap_detector = GapDetector(skeleton_path, context_dir)
+
+        # 布局顾问（P2-2: 预决策）
+        self.layout_advisor = LayoutAdvisor(verbose=self.options.get('verbose', False))
+        self.layout_decisions: Dict[str, LayoutDecision] = {}
 
         # 研究结果缓存
         self.research_cache = {}
@@ -236,6 +241,43 @@ class PPTEnrich:
 
         return self.image_paths
 
+    def apply_layout_decisions(self) -> Dict[str, LayoutDecision]:
+        """
+        P2-2: 布局预决策
+        在生成 slide-md 之前，为每个章节分析内容并决定布局。
+        返回 {section_id: LayoutDecision} 映射。
+        """
+        if self.options.get('verbose'):
+            print("\n📐 Applying layout decisions...")
+
+        for section in self.skeleton.get('structure', []):
+            section_id = section.get('id', '')
+
+            # 为每个 slide 生成布局决策
+            for slide in section.get('slides', [section]):
+                slide_id = slide.get('id', section_id)
+                decision = self.layout_advisor.recommend_layout(slide)
+                self.layout_decisions[slide_id] = decision
+
+                # 将决策写入 skeleton（供后续验证）
+                slide['_layout_decision'] = {
+                    'layout': decision.layout.value,
+                    'confidence': decision.confidence,
+                    'chart_type': decision.chart_type.value if decision.chart_type else None,
+                    'image_position': decision.image_position.value,
+                    'design_hints': decision.design_hints,
+                    'rationale': decision.rationale
+                }
+
+        if self.options.get('verbose'):
+            print(f"  Applied {len(self.layout_decisions)} layout decisions")
+
+        return self.layout_decisions
+
+    def get_design_report(self) -> str:
+        """获取设计报告"""
+        return self.layout_advisor.generate_design_report(self.skeleton)
+
     def generate(self, output_dir: str = None) -> List[str]:
         """生成 slide-md 文件"""
         output_dir = output_dir or self.options['output_dir']
@@ -318,19 +360,47 @@ class PPTEnrich:
         return slides
 
     def _generate_content_slides(self, section: Dict, writer: SlideMDWriter) -> List[SlideContent]:
-        """生成内容幻灯片"""
+        """生成内容幻灯片（使用布局预决策）"""
         slides = []
         section_id = section.get('id', '')
         hints = section.get('content_hints', [])
+        title = section.get('title', '')
 
-        # 从 hints 生成要点页
+        # P2-2: 获取布局决策
+        layout_decision = section.get('_layout_decision', {})
+        recommended_layout = layout_decision.get('layout', 'bullets')
+
+        # 根据布局决策生成内容页
         if hints:
-            content = writer.create_bullets_slide(
-                slide_id=f"{section_id}-content",
-                title=section.get('title', ''),
-                bullets=hints,
-                source_section=section_id
-            )
+            if recommended_layout == 'three-cards' and len(hints) >= 3:
+                # 使用卡片布局
+                cards = [{'title': h.split('：')[0] if '：' in h else h[:10],
+                          'description': h.split('：')[1] if '：' in h else h}
+                         for h in hints[:3]]
+                content = writer.create_cards_slide(
+                    slide_id=f"{section_id}-content",
+                    title=title,
+                    cards=cards,
+                    source_section=section_id
+                )
+            elif recommended_layout == 'two-column' and len(hints) >= 2:
+                # 使用双列布局
+                mid = len(hints) // 2
+                content = writer.create_two_column_slide(
+                    slide_id=f"{section_id}-content",
+                    title=title,
+                    left_bullets=hints[:mid],
+                    right_bullets=hints[mid:],
+                    source_section=section_id
+                )
+            else:
+                # 默认要点列表
+                content = writer.create_bullets_slide(
+                    slide_id=f"{section_id}-content",
+                    title=title,
+                    bullets=hints,
+                    source_section=section_id
+                )
             slides.append(content)
 
         # 如果有研究结果，添加数据页
@@ -471,6 +541,12 @@ def main():
     # 生成图片
     if not args.no_images:
         enricher.generate_images()
+
+    # P2-2: 应用布局预决策
+    print("\nApplying layout decisions...")
+    enricher.apply_layout_decisions()
+    if args.verbose:
+        print(enricher.get_design_report())
 
     # 生成 slide-md
     print("\nGenerating slides...")

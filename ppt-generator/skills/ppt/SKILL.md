@@ -867,6 +867,198 @@ output:
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | 1.0.0 | 2026-01-12 | 初版 |
+| 1.1.0 | 2026-01-13 | P1: 强制反思协议、图片生成协议 |
+| 1.2.0 | 2026-01-13 | P2: Intent Engine 集成、布局预决策 |
+
+---
+
+## 🧠 跨会话追踪协议（P2）
+
+> **使用 Intent Engine 记录 PPT 生成的每个阶段，支持跨会话恢复和决策审计。**
+
+### 为什么需要跨会话追踪？
+
+1. **断点恢复**: 会话中断后，新会话能知道上次进度
+2. **决策审计**: 记录为什么选择某个布局/主题
+3. **质量追踪**: 里程碑记录便于复盘
+
+### 集成方式
+
+```python
+from ie_integration import IETracker
+
+tracker = IETracker("ai-trends-brief", Path("./output"))
+
+# 创建任务（会话开始时）
+tracker.create_ppt_task("AI未来趋势简报", 30, "nano-banana-pro")
+
+# 每个阶段完成后记录里程碑
+tracker.log_milestone("skeleton", "Generated 5 sections, 12 slides")
+tracker.log_milestone("research", "Completed 3 research tasks with 15 sources")
+tracker.log_milestone("layout", "Applied layout decisions: 3 cards, 2 bullets")
+tracker.log_milestone("render", "Generated presentation.pptx (2.3MB)")
+
+# 记录重要决策
+tracker.log_decision(
+    topic="Section 02 Layout",
+    options=["bullets", "three-cards", "chart"],
+    chosen="three-cards",
+    rationale="Content has 3 AI trends, perfect for card layout"
+)
+
+# 记录阻塞
+tracker.log_blocker("images", "Gemini API rate limited", "Wait 60s and retry")
+```
+
+### AI 执行协议
+
+**每个阶段完成后，必须输出并记录：**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🧠 IE MILESTONE: [STAGE_NAME]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Project: ai-trends-brief
+Stage: skeleton
+Summary: Generated skeleton.yaml with 2 sections
+
+Artifacts:
+  ✅ skeleton.yaml (1.2KB)
+  ✅ research_tasks: 1
+
+Logged to Intent Engine: ✓
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### 会话恢复
+
+新会话开始时：
+
+```bash
+# 查看当前任务状态
+ie status
+
+# 搜索未完成任务
+ie search "PPT doing"
+```
+
+---
+
+## 📐 布局预决策协议（P2）
+
+> **在生成 slide-md 之前，必须先运行 LayoutAdvisor 分析内容并决定布局。**
+
+### 为什么需要预决策？
+
+1. **避免单调布局**: 不是所有内容都用 bullets
+2. **智能推荐**: 根据内容特征自动推荐最佳布局
+3. **设计一致性**: 确保设计决策有据可查
+
+### 工作流程
+
+```
+skeleton.yaml
+     │
+     ▼
+┌─────────────────┐
+│ LayoutAdvisor   │ ← 分析内容特征
+│ (预决策)        │
+└────────┬────────┘
+         │
+         ▼
+skeleton.yaml (enriched)
+with _layout_decision
+         │
+         ▼
+┌─────────────────┐
+│ SlideMDWriter   │ ← 使用决策生成
+│ (内容生成)       │
+└────────┬────────┘
+         │
+         ▼
+slides/*.slide.md
+```
+
+### 布局决策字段
+
+预决策后，skeleton.yaml 中每个 slide 会添加：
+
+```yaml
+structure:
+  - id: "02-trends"
+    title: "2026三大趋势"
+    slides:
+      - id: "02-01"
+        type: content
+        layout: three-cards
+        _layout_decision:           # 🆕 预决策结果
+          layout: three-cards
+          confidence: 0.9
+          chart_type: null
+          image_position: icon
+          design_hints:
+            - 每个卡片展示一个趋势
+            - 突出关键指标
+          rationale: "内容有3个并列趋势，适合卡片布局"
+```
+
+### AI 执行协议
+
+**Enrich 阶段必须先执行预决策：**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📐 LAYOUT PRE-DECISION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Analyzing 5 sections...
+
+[02-01] 2026三大趋势
+  Layout: three-cards (confidence: 90%)
+  Rationale: 内容有3个并列趋势，适合卡片布局
+
+[03-01] 实施路线图
+  Layout: chart (confidence: 85%)
+  Chart: timeline
+  Rationale: 时间相关内容适合时间线图表
+
+Layout Distribution:
+  three-cards: 2
+  bullets: 2
+  chart: 1
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### 布局推荐规则
+
+| 内容特征 | 推荐布局 | 置信度 |
+|----------|----------|--------|
+| 3个并列项 | three-cards | 90% |
+| 对比内容 | two-column / comparison chart | 80-85% |
+| 步骤/流程 | chart (process-flow) | 90% |
+| 时间线 | chart (timeline) | 90% |
+| 层级结构 | chart (pyramid) | 85% |
+| 引用/金句 | quote | 90% |
+| 数据密集 | table | 75% |
+| 默认 | bullets | 60% |
+
+### 调用方式
+
+```python
+from layout_advisor import LayoutAdvisor
+
+advisor = LayoutAdvisor(verbose=True)
+
+# 为单个章节推荐布局
+decision = advisor.recommend_layout(section)
+print(f"推荐: {decision.layout.value}, 置信度: {decision.confidence}")
+
+# 批量应用到 skeleton
+enriched_skeleton = advisor.apply_decisions_to_skeleton(skeleton)
+
+# 生成设计报告
+report = advisor.generate_design_report(skeleton)
+print(report)
+```
 
 ## 快速示例
 

@@ -215,6 +215,32 @@ class SlideMDWriter:
             })
         return slide
 
+    def create_two_column_slide(self, slide_id: str, title: str,
+                                left_bullets: List[str], right_bullets: List[str],
+                                source_section: str = "",
+                                left_title: str = "", right_title: str = "") -> SlideContent:
+        """创建双列对比幻灯片"""
+        slide = SlideContent(
+            id=slide_id,
+            type="content",
+            layout="two-column",
+            title=title,
+            source_section=source_section
+        )
+        slide.elements.append({
+            'type': 'column',
+            'position': 'left',
+            'title': left_title,
+            'bullets': left_bullets
+        })
+        slide.elements.append({
+            'type': 'column',
+            'position': 'right',
+            'title': right_title,
+            'bullets': right_bullets
+        })
+        return slide
+
     def create_quote_slide(self, slide_id: str, quote: str,
                           attribution: str = "") -> SlideContent:
         """创建引用幻灯片"""

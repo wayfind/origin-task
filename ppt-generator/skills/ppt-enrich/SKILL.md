@@ -628,8 +628,67 @@ if img_manager.is_available():
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| 1.2.0 | 2026-01-13 | P2: 布局预决策强制集成 |
 | 1.1.0 | 2026-01-12 | 添加 Layout Advisor 和配图生成 |
 | 1.0.0 | 2026-01-12 | 初版 |
+
+---
+
+## 📐 布局预决策（P2 强制）
+
+> **在生成 slide-md 之前，必须先调用 LayoutAdvisor 分析内容并决定布局。**
+
+### 执行流程
+
+```
+1. 加载 skeleton.yaml
+2. 运行 gap_detector 检测空缺
+3. 执行 research 获取数据
+4. 🆕 调用 layout_advisor.apply_layout_decisions() ← 预决策
+5. 生成 slide-md 文件
+```
+
+### 预决策输出
+
+**enrich.py 现在会自动输出：**
+
+```
+Applying layout decisions...
+[LayoutAdvisor] 02-01: three-cards
+  Rationale: 案例内容适合卡片布局，便于对比展示
+[LayoutAdvisor] 03-01: chart
+  Chart: timeline
+  Rationale: 时间相关内容适合时间线图表
+
+  Applied 5 layout decisions
+```
+
+### 布局使用方式
+
+```python
+# enrich.py 中已集成
+enricher = PPTEnrich(skeleton_path, ...)
+
+# 自动在 generate() 前调用
+enricher.apply_layout_decisions()
+
+# 生成时会使用布局决策
+enricher.generate()
+```
+
+### 验证布局决策
+
+预决策会在 skeleton 中添加 `_layout_decision` 字段：
+
+```yaml
+slides:
+  - id: "02-01"
+    type: content
+    _layout_decision:
+      layout: three-cards
+      confidence: 0.9
+      rationale: "..."
+```
 
 ## 相关文档
 
