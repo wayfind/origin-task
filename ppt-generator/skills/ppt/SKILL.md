@@ -97,6 +97,217 @@ auth:
 
 ---
 
+## 🔄 强制反思协议（P1 必读）
+
+> **每个阶段完成后，必须输出反思报告，检查是否有遗漏或问题。**
+
+### 为什么需要反思？
+
+AI 容易"声称完成"但实际跳过步骤。强制反思机制：
+1. 验证 artifact 文件是否真的存在
+2. 检查内容质量（非空、有来源）
+3. 发现遗漏并立即修正
+
+### 反思输出格式
+
+**每个 Stage 完成后，必须输出：**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📋 STAGE REFLECTION: [STAGE_NAME]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ [检查项1]: 通过
+✅ [检查项2]: 通过
+⚠️ [检查项3]: 警告 - [原因]
+❌ [检查项4]: 失败 - [原因]
+
+⚠️  Warnings:
+   - [警告1]
+   - [警告2]
+
+📌 Next: [下一步操作]
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+### 各阶段检查清单
+
+#### Stage 0: Init 反思
+```
+检查项:
+- [ ] .pptrc.yaml 已创建
+- [ ] deep_research 配置正确
+- [ ] image_generation 配置正确
+```
+
+#### Stage 1: Skeleton 反思
+```
+检查项:
+- [ ] skeleton.yaml 已创建
+- [ ] research_tasks 已定义（数量 > 0）
+- [ ] structure 已定义
+```
+
+#### Stage 2: Research 反思
+```
+检查项:
+- [ ] research_results/ 目录已创建
+- [ ] 所有 required 任务都有对应的 .md 文件
+- [ ] 每个结果文件内容 > 100 字符
+- [ ] 每个结果文件包含来源引用
+```
+
+#### Stage 2.5: Images 反思（如果启用）
+```
+检查项:
+- [ ] images/ 目录已创建
+- [ ] 封面图已生成
+- [ ] 章节图已生成（可选）
+```
+
+#### Stage 3: Enrich 反思
+```
+检查项:
+- [ ] slides/ 目录已创建
+- [ ] 所有幻灯片文件已生成
+- [ ] @RESEARCH 标记内容已填充（非占位符）
+```
+
+#### Stage 4: Render 反思
+```
+检查项:
+- [ ] PPTX 文件已生成
+- [ ] 文件大小合理（> 10KB）
+```
+
+### 反思后行动
+
+```
+如果有 ❌ 错误:
+  → 停止，修复问题，重新执行当前阶段
+
+如果有 ⚠️ 警告:
+  → 输出警告，询问用户是否继续
+
+如果全部 ✅ 通过:
+  → 继续下一阶段
+```
+
+---
+
+## 🎨 图片生成协议（P1）
+
+> **当 image_generation: true 时，在研究完成后生成装饰图片。**
+
+### 触发条件
+
+```yaml
+# .pptrc.yaml 中
+capabilities:
+  image_generation: true  # ← 此项为 true 时触发
+```
+
+### 执行时机
+
+```
+Stage 2: Research 完成
+    ↓
+Stage 2.5: Images 生成  ← 在此执行
+    ↓
+Stage 3: Enrich
+```
+
+### 图片生成任务
+
+根据 skeleton.yaml 中的 `image_position` 字段：
+
+| 位置 | 用途 | Aspect Ratio |
+|------|------|--------------|
+| `cover` | 封面主视觉 | 16:9 |
+| `section` | 章节标题背景 | 16:9 |
+| `ending` | 结尾感谢图 | 16:9 |
+
+### AI 执行协议
+
+**当看到 `image_generation: true` 时：**
+
+#### Step 1: 显式输出图片任务
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎨 IMAGE GENERATION TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Skill: nano-banana-image
+Images to generate:
+  - cover: 封面主视觉
+  - section-01: 章节1背景
+  - ending: 结尾感谢图
+
+Status: ⏳ Generating...
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
+
+#### Step 2: 调用图片生成
+
+```python
+# 使用 Task 工具调用 nano-banana-image
+Task(
+    subagent_type="general-purpose",
+    prompt="""
+    使用 nano-banana-image skill 生成 PPT 装饰图片:
+
+    1. 封面图:
+       描述: [PPT标题相关的视觉描述]
+       输出: images/cover.png
+       比例: 16:9
+
+    2. 结尾图:
+       描述: Thank you, professional closing
+       输出: images/ending.png
+       比例: 16:9
+
+    要求: 使用 nano-banana-pro 色彩风格（深色背景、金色/青色点缀）
+    """,
+    description="Generate PPT images"
+)
+```
+
+#### Step 3: 保存到 images/ 目录
+
+```bash
+output/project-name/
+├── images/               # 🆕 图片目录
+│   ├── cover.png
+│   ├── section-01.png
+│   └── ending.png
+├── research_results/
+├── slides/
+└── skeleton.yaml
+```
+
+#### Step 4: 在 slide-md 中引用
+
+```markdown
+---
+slide:
+  id: "01-01"
+  type: cover
+  layout: title-only
+  image: images/cover.png   # 🆕 引用图片
+---
+
+# PPT 标题
+```
+
+### 图片生成失败处理
+
+```
+如果图片生成失败:
+  → 输出警告，但继续后续流程
+  → 幻灯片将没有装饰图，但内容不受影响
+```
+
+---
+
 ## 📋 Research Directive 语法（必读）
 
 > **这是 PPT 生成的核心机制：显式声明研究任务，强制执行获取结果。**
