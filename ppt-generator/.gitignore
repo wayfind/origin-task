@@ -25,12 +25,19 @@ env/
 *.cache
 
 # Generated outputs
+output/
 output.pptx
 *.pptx
 !test/fixtures/*.pptx
 slides/
 skeleton.yaml
 .ppt-state.json
+
+# Skill symlinks (auto-generated)
+skills/ppt/ppt
+skills/ppt-enrich/ppt-enrich
+skills/ppt-outline/ppt-outline
+skills/ppt-render/ppt-render
 
 # IDE
 .idea/
